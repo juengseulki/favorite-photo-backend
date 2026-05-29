@@ -1,0 +1,43 @@
+# dependencies
+node_modules
+
+# env
+.env
+.env.local
+.env.production
+
+# prisma generated
+/generated/prisma
+
+# logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# coverage
+coverage
+
+# build
+dist
+build
+
+# prisma
+prisma/dev.db
+prisma/dev.db-journal
+
+# uploads (나중에 이미지 업로드하면)
+uploads
+
+# temporary
+tmp
+temp
