@@ -1,10 +1,11 @@
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import saleController from './controllers/saleController';
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:3000"];
+const allowedOrigins = ['http://localhost:3000'];
 
 app.use(
   cors({
@@ -14,21 +15,23 @@ app.use(
         return;
       }
 
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
-  }),
+  })
 );
 
 app.use(express.json());
 app.use(cookieParser());
 
-app.get("/", (req, res) => {
-  res.json({ message: "Favorite Photo Backend API" });
+app.get('/', (req, res) => {
+  res.json({ message: 'Favorite Photo Backend API' });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
+
+app.use('/sales', saleController);
 
 export default app;
