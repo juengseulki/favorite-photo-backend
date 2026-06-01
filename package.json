@@ -9,7 +9,15 @@
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
     "prisma:studio": "prisma studio",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "prepare": "husky",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "lint-staged": {
+    "*.{js,json,md}": [
+      "prettier --write"
+    ]
   },
   "prisma": {
     "seed": "node prisma/seed.js"
@@ -29,6 +37,12 @@
     "prisma": "^6.19.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.14"
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
+    "eslint": "^10.4.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.8.3"
   }
 }
