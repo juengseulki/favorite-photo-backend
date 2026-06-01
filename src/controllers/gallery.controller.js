@@ -9,7 +9,7 @@ export const getMyCards = async (req, res, next) => {
       grade,
       genre,
       page = 1,
-      limit = 4,
+      limit = 15,
       sort = 'latest',
     } = req.query;
 
