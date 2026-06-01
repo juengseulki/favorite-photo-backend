@@ -77,47 +77,67 @@ enum OAuthProvider {
   NAVER
 }
 
-
-model RefreshToken {  
-	id        Int      @id @default(autoincrement())  
-	userId    String  
-	tokenHash String   @unique  
-	
-	expiresAt DateTime  
-	
-	user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)  
-	
-	createdAt DateTime @default(now()) 
-	
-	@@index([userId])
+enum ActivityType {
+  CARD_CREATED
+  CARD_LISTED
+  CARD_SOLD
+  CARD_PURCHASED
+  SALE_CANCELED
+  EXCHANGE_REQUESTED
+  EXCHANGE_ACCEPTED
+  EXCHANGE_REJECTED
+  EXCHANGE_CANCELED
+  POINT_EARNED
+  POINT_USED
+  RANDOM_BOX_OPENED
 }
 
+enum NotificationTargetType {
+  SALE
+  PURCHASE
+  EXCHANGE
+  CARD
+  USER
+}
+
+model RefreshToken {
+  id        Int    @id @default(autoincrement())
+  userId    String
+  tokenHash String @unique
+
+  expiresAt DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
 
 model OAuthAccount {
-  id                Int           @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  userId            String
+  userId String
 
   provider          OAuthProvider
   providerAccountId String
 
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([provider, providerAccountId])
   @@index([userId])
 }
 
-
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String?
-  nickname  String   @unique
+  id       String  @id @default(uuid())
+  email    String  @unique
+  password String?
+  nickname String  @unique
 
-  point     Point?
+  point Point?
 
   refreshTokens RefreshToken[]
   oauthAccounts OAuthAccount[]
@@ -130,188 +150,240 @@ model User {
 
   exchangeProposals ExchangeProposal[]
 
-  notifications  Notification[]
-  pointHistories PointHistory[]
+  notifications      Notification[]
+  pointHistories     PointHistory[]
+  randomBoxHistories RandomBoxHistory[]
+  activityLogs       ActivityLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
+model RandomBoxHistory {
+  id     Int    @id @default(autoincrement())
+  userId String
+  amount Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model ActivityLog {
+  id Int @id @default(autoincrement())
+
+  userId  String?
+  type    ActivityType
+  content String
+
+  targetType NotificationTargetType?
+  targetId   Int?
+
+  metadata Json?
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([targetType, targetId])
+}
+
 model Point {
-  id        Int    @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  userId    String @unique
-  balance   Int    @default(0)
+  userId  String @unique
+  balance Int    @default(0)
 
-  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model PhotoCard {
-  id              Int          @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  name            String
-  description     String
-  imageUrl        String
+  name        String
+  description String
+  imageUrl    String
 
-  grade           CardGrade
-  genre           CardGenre
+  grade CardGrade
+  genre CardGenre
 
-  totalQuantity   Int
-  initialPrice    Int
+  totalQuantity Int
+  initialPrice  Int
 
-  creatorId       String
-  creator         User         @relation(fields: [creatorId], references: [id])
+  creatorId String
+  creator   User   @relation(fields: [creatorId], references: [id])
 
-  cardCopies      CardCopy[]
+  cardCopies CardCopy[]
 
-  sales           Sale[]
+  sales Sale[]
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model CardCopy {
-  id              Int          @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  photoCardId     Int
-  ownerId         String
+  photoCardId Int
+  ownerId     String
 
-  status          CardStatus   @default(OWNED)
+  status CardStatus @default(OWNED)
 
-  photoCard       PhotoCard    @relation(fields: [photoCardId], references: [id])
+  photoCard PhotoCard @relation(fields: [photoCardId], references: [id])
 
-  owner           User         @relation(fields: [ownerId], references: [id])
+  owner User @relation(fields: [ownerId], references: [id])
 
-  saleItems       SaleItem[]
+  saleItems SaleItem[]
 
-  exchangeOffers  ExchangeProposal[]
+  exchangeOffers ExchangeProposal[]
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  serialNumber    String       @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  serialNumber String   @unique
 
   @@index([ownerId])
   @@index([photoCardId])
 }
 
 model Sale {
-  id              Int          @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  sellerId        String
-  photoCardId     Int
+  sellerId    String
+  photoCardId Int
 
-  price           Int
+  price Int
 
-  status          SaleStatus   @default(ON_SALE)
+  status SaleStatus @default(ON_SALE)
 
-  seller          User         @relation(fields: [sellerId], references: [id])
+  seller User @relation(fields: [sellerId], references: [id])
 
-  photoCard       PhotoCard    @relation(fields: [photoCardId], references: [id])
+  photoCard PhotoCard @relation(fields: [photoCardId], references: [id])
 
-  saleItems       SaleItem[]
+  saleItems SaleItem[]
 
-  purchases       Purchase[]
+  purchases Purchase[]
 
   exchangeProposals ExchangeProposal[]
 
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([sellerId])
   @@index([photoCardId])
 }
 
 model SaleItem {
-  id              Int          @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  saleId          Int
-  cardCopyId      Int
+  saleId     Int
+  cardCopyId Int
 
-  sale            Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
 
-  cardCopy        CardCopy     @relation(fields: [cardCopyId], references: [id])
+  cardCopy CardCopy @relation(fields: [cardCopyId], references: [id])
 
-  createdAt       DateTime     @default(now())
+  createdAt    DateTime      @default(now())
+  purchaseItem PurchaseItem?
 
   @@unique([cardCopyId])
 }
 
 model Purchase {
-  id              Int          @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  buyerId         String
-  saleId          Int
+  buyerId String
+  saleId  Int
 
-  quantity        Int
-  totalPrice      Int
+  quantity   Int
+  totalPrice Int
 
-  buyer           User         @relation(fields: [buyerId], references: [id])
+  buyer User @relation(fields: [buyerId], references: [id])
+  sale  Sale @relation(fields: [saleId], references: [id])
 
-  sale            Sale         @relation(fields: [saleId], references: [id])
+  items PurchaseItem[]
 
-  createdAt       DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@index([buyerId])
+  @@index([saleId])
+}
+
+model PurchaseItem {
+  id Int @id @default(autoincrement())
+
+  purchaseId Int
+  saleItemId Int @unique
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  saleItem SaleItem @relation(fields: [saleItemId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
 model ExchangeProposal {
-  id                  Int               @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  saleId              Int
-  proposerId          String
+  saleId     Int
+  proposerId String
 
-  offeredCardCopyId   Int
+  offeredCardCopyId Int
 
-  status              ExchangeStatus    @default(PENDING)
+  status ExchangeStatus @default(PENDING)
 
-  sale                Sale              @relation(fields: [saleId], references: [id])
+  sale Sale @relation(fields: [saleId], references: [id])
 
-  proposer            User              @relation(fields: [proposerId], references: [id])
+  proposer User @relation(fields: [proposerId], references: [id])
 
-  offeredCardCopy     CardCopy          @relation(fields: [offeredCardCopyId], references: [id])
+  offeredCardCopy CardCopy @relation(fields: [offeredCardCopyId], references: [id])
 
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([saleId])
   @@index([proposerId])
 }
 
 model Notification {
-  id              Int               @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  userId          String
+  userId  String
+  type    NotificationType
+  content String
+  isRead  Boolean          @default(false)
 
-  type            NotificationType
+  linkUrl    String? // 클릭 시 이동할 프론트 라우트
+  targetId   Int? // 관련 데이터 ID
+  targetType NotificationTargetType? // SALE, EXCHANGE, CARD 등
 
-  content         String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  isRead          Boolean           @default(false)
-
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt       DateTime          @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
 
 model PointHistory {
-  id              Int               @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
-  userId          String
+  userId String
 
-  amount          Int
+  amount Int
 
-  reason          PointReason
+  reason PointReason
 
-  description     String?
+  description String?
 
-  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt       DateTime          @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
 }
