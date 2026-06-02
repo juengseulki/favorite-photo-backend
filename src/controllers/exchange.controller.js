@@ -1,10 +1,10 @@
 import { createProposal, listProposals } from '../services/exchange.service.js';
 
+// 인증 미들웨어가 세팅한 사용자 정보를 컨트롤러 공통으로 꺼낸다.
 function getCurrentUserId(req) {
-  // TODO(auth): req.user.id 사용으로 전환 예정
-  const userId = req.headers['x-user-id'];
+  const userId = req.user?.id;
   if (!userId) {
-    const err = new Error('임시 사용자 식별 헤더(x-user-id)가 필요합니다.');
+    const err = new Error('인증된 사용자 정보가 필요합니다.');
     err.status = 401;
     err.code = 'UNAUTHORIZED';
     throw err;
@@ -12,6 +12,7 @@ function getCurrentUserId(req) {
   return String(userId);
 }
 
+// 교환 제안 생성 요청을 받아 서비스 계층에 필요한 값만 전달한다.
 export async function createExchangeProposal(req, res) {
   try {
     const userId = getCurrentUserId(req);
@@ -36,6 +37,7 @@ export async function createExchangeProposal(req, res) {
   }
 }
 
+// 보낸 요청/받은 요청 목록을 필터 조건과 함께 조회한다.
 export async function getExchangeProposals(req, res) {
   try {
     const userId = getCurrentUserId(req);

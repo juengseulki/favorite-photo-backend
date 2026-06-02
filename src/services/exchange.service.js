@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 
+// 잘못된 요청값에 대한 400 에러
 function badRequest(message) {
   const err = new Error(message);
   err.status = 400;
@@ -7,6 +8,7 @@ function badRequest(message) {
   return err;
 }
 
+// 권한이 없는 요청에 대한 403 에러
 function forbidden(message) {
   const err = new Error(message);
   err.status = 403;
@@ -14,6 +16,7 @@ function forbidden(message) {
   return err;
 }
 
+// 조회 대상이 없을 때 사용할 404 에러
 function notFound(message) {
   const err = new Error(message);
   err.status = 404;
@@ -21,6 +24,7 @@ function notFound(message) {
   return err;
 }
 
+// 중복 요청이나 현재 상태에서 처리 불가한 경우의 409 에러
 function conflict(message, code = 'DUPLICATE_ERROR') {
   const err = new Error(message);
   err.status = 409;
@@ -35,6 +39,7 @@ const EXCHANGE_STATUS = new Set([
   'CANCELED',
 ]);
 
+// 교환 제안 생성 전 판매글/카드 상태를 검증하고 제안을 저장
 export async function createProposal({
   userId,
   saleId,
@@ -89,6 +94,7 @@ export async function createProposal({
   });
 }
 
+// 보낸 요청/받은 요청 목록을 조건에 맞게 조회
 export async function listProposals({ userId, type, status }) {
   if (!['sent', 'received'].includes(type)) {
     throw badRequest('type은 sent 또는 received만 가능합니다.');

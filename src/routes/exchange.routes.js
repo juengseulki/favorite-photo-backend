@@ -3,11 +3,11 @@ import {
   createExchangeProposal,
   getExchangeProposals,
 } from '../controllers/exchange.controller.js';
+import { authenticate } from '../middlewares/authenticate.js';
 
 const router = express.Router();
 
-// TODO(auth): 팀원 auth 작업 머지 후 requireAuth 미들웨어 연결
-router.post('/exchange-proposals', createExchangeProposal);
-router.get('/exchange-proposals', getExchangeProposals);
+router.post('/exchange-proposals', authenticate, createExchangeProposal);
+router.get('/exchange-proposals', authenticate, getExchangeProposals);
 
 export default router;
