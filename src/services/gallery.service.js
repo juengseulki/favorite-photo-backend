@@ -138,6 +138,16 @@ export const postMyCardsService = async ({
     },
   });
 
+  for (let i = 1; i <= totalQuantity; i++) {
+    await prisma.cardCopy.create({
+      data: {
+        photoCardId: card.id,
+        ownerId: userId,
+        serialNumber: `CARD-${card.id}-${String(i).padStart(3, '0')}`,
+      },
+    });
+  }
+
   return {
     id: card.id,
     name: card.name,
