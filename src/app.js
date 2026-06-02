@@ -1,11 +1,14 @@
 import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
-import exchangeRoutes from './routes/exchange.routes.js'; // 교환 관련 라우트 추가
+import router from './routes/index.js';
+import errorHandler from './middlewares/errorHandler.js';
 
 const app = express();
 
-const allowedOrigins = ['http://localhost:3000'];
+const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3000')
+  .split(',')
+  .map((u) => u.trim().replace(/\/$/, ''));
 
 app.use(
   cors({
@@ -32,6 +35,7 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-app.use('/api', exchangeRoutes); // 교환 관련 라우트 등록
+app.use('/api', router);
+app.use(errorHandler);
 
 export default app;
