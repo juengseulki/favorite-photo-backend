@@ -256,6 +256,10 @@ model Sale {
 
   photoCard PhotoCard @relation(fields: [photoCardId], references: [id])
 
+  exchangeGrade       CardGrade?
+  exchangeGenre       CardGenre?
+  exchangeDescription String?
+
   saleItems SaleItem[]
 
   purchases Purchase[]
