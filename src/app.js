@@ -1,10 +1,14 @@
-import express from "express";
-import cors from "cors";
-import cookieParser from "cookie-parser";
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import router from './routes/index.js';
+import errorHandler from './middlewares/errorHandler.js';
 
 const app = express();
 
-const allowedOrigins = ["http://localhost:3000"];
+const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3000')
+  .split(',')
+  .map((u) => u.trim().replace(/\/$/, ''));
 
 app.use(
   cors({
@@ -14,21 +18,24 @@ app.use(
         return;
       }
 
-      callback(new Error("Not allowed by CORS"));
+      callback(new Error('Not allowed by CORS'));
     },
     credentials: true,
-  }),
+  })
 );
 
 app.use(express.json());
 app.use(cookieParser());
 
-app.get("/", (req, res) => {
-  res.json({ message: "Favorite Photo Backend API" });
+app.get('/', (req, res) => {
+  res.json({ message: 'Favorite Photo Backend API' });
 });
 
-app.get("/health", (req, res) => {
-  res.json({ status: "ok" });
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
+
+app.use('/api', router);
+app.use(errorHandler);
 
 export default app;
