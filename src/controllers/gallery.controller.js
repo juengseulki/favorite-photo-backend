@@ -30,7 +30,6 @@ export const getMyCards = async (req, res, next) => {
       data: result,
       message: 'success',
     });
-    s;
   } catch (error) {
     next(error);
   }
@@ -42,7 +41,6 @@ export const postMyCards = async (req, res, next) => {
 
     const { name, description, imageUrl, grade, genre, price, totalQuantity } =
       req.body;
-    j;
 
     const result = await postMyCardsService({
       userId,
