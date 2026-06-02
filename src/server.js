@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
 import galleryRouter from './routes/gallery.route.js';
+import express from 'express';
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ if (missing.length > 0) {
 
 const PORT = process.env.PORT || 5000;
 
+app.use(express.json());
 app.use(galleryRouter);
 
 app.listen(PORT, () => {

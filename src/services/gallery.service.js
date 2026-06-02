@@ -114,3 +114,40 @@ export const getMyCardsService = async ({
     },
   };
 };
+
+export const postMyCardsService = async ({
+  userId,
+  name,
+  description,
+  imageUrl,
+  grade,
+  genre,
+  price,
+  totalQuantity,
+}) => {
+  const card = await prisma.photoCard.create({
+    data: {
+      name,
+      description,
+      imageUrl,
+      grade,
+      genre,
+      totalQuantity,
+      initialPrice: price,
+      creatorId: userId,
+    },
+  });
+
+  return {
+    id: card.id,
+    name: card.name,
+    description: card.description,
+    imageUrl: card.imageUrl,
+    grade: card.grade,
+    genre: card.genre,
+    totalQuantity: card.totalQuantity,
+    initialPrice: card.initialPrice,
+    creatorId: card.creatorId,
+    createdAt: card.createdAt,
+  };
+};
