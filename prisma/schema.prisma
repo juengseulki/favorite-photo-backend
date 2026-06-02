@@ -77,19 +77,10 @@ enum OAuthProvider {
   NAVER
 }
 
-enum ActivityType {
-  CARD_CREATED
-  CARD_LISTED
-  CARD_SOLD
-  CARD_PURCHASED
-  SALE_CANCELED
-  EXCHANGE_REQUESTED
-  EXCHANGE_ACCEPTED
-  EXCHANGE_REJECTED
-  EXCHANGE_CANCELED
-  POINT_EARNED
-  POINT_USED
-  RANDOM_BOX_OPENED
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
 }
 
 enum NotificationTargetType {
@@ -153,7 +144,7 @@ model User {
   notifications      Notification[]
   pointHistories     PointHistory[]
   randomBoxHistories RandomBoxHistory[]
-  activityLogs       ActivityLog[]
+  auditLogs AuditLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -162,7 +153,6 @@ model User {
 model RandomBoxHistory {
   id     Int    @id @default(autoincrement())
   userId String
-  amount Int
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -172,25 +162,24 @@ model RandomBoxHistory {
   @@index([createdAt])
 }
 
-model ActivityLog {
+model AuditLog {
   id Int @id @default(autoincrement())
 
-  userId  String?
-  type    ActivityType
-  content String
+  tableName String
+  recordId  String
+  action    AuditAction
 
-  targetType NotificationTargetType?
-  targetId   Int?
+  beforeData Json?
+  afterData  Json?
 
-  metadata Json?
-
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  changedById String?
+  changedBy   User? @relation(fields: [changedById], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
 
-  @@index([userId])
-  @@index([type])
-  @@index([targetType, targetId])
+  @@index([tableName, recordId])
+  @@index([action])
+  @@index([changedById])
 }
 
 model Point {
