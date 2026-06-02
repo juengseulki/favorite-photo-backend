@@ -1,63 +1,69 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
-// 판매 카드 목록 조회
-export const getMarketCardsService = async ({ page, limit }) => {
-  const skip = (page - 1) * limit;
-
+// 마켓 판매 카드 목록 조회
+export const getMarketCardsService = async ({ cursor, limit }) => {
   const where = {
     status: {
       in: ['ON_SALE', 'SOLD_OUT'],
     },
   };
 
-  const [sales, totalCount] = await Promise.all([
-    prisma.sale.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        createdAt: 'desc',
+  const sales = await prisma.sale.findMany({
+    where,
+    ...(cursor && {
+      cursor: {
+        id: cursor,
       },
-      select: {
-        id: true,
-        price: true,
-        status: true,
-        createdAt: true,
-        seller: {
-          select: {
-            nickname: true,
-          },
+      skip: 1,
+    }),
+    take: limit + 1,
+    orderBy: {
+      id: 'desc',
+    },
+    select: {
+      id: true,
+      price: true,
+      status: true,
+      createdAt: true,
+      seller: {
+        select: {
+          nickname: true,
         },
-        photoCard: {
-          select: {
-            id: true,
-            name: true,
-            imageUrl: true,
-            grade: true,
-            genre: true,
-            totalQuantity: true,
-            creator: {
-              select: {
-                nickname: true,
-              },
+      },
+      photoCard: {
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          grade: true,
+          genre: true,
+          totalQuantity: true,
+          creator: {
+            select: {
+              nickname: true,
             },
           },
         },
-        saleItems: {
-          where: {
-            purchaseItem: null,
-          },
-          select: {
-            id: true,
-          },
+      },
+      saleItems: {
+        where: {
+          purchaseItem: null,
+        },
+        select: {
+          id: true,
         },
       },
-    }),
-    prisma.sale.count({ where }),
-  ]);
+    },
+  });
 
-  const cards = sales.map((sale) => {
+  const hasNextPage = sales.length > limit;
+  const currentSales = hasNextPage ? sales.slice(0, limit) : sales;
+  const nextCursor = hasNextPage
+    ? currentSales[currentSales.length - 1].id
+    : null;
+
+  const cards = currentSales.map((sale) => {
     const remainingQuantity = sale.saleItems.length;
 
     return {
@@ -80,13 +86,12 @@ export const getMarketCardsService = async ({ page, limit }) => {
 
   return {
     cards,
-    totalCount,
-    currentPage: page,
-    totalPages: Math.ceil(totalCount / limit),
+    nextCursor,
+    hasNextPage,
   };
 };
 
-// 판매 카드 상세 조회
+// 마켓 판매 카드 상세 조회
 export const getMarketCardDetailService = async (saleId) => {
   const sale = await prisma.sale.findUnique({
     where: {

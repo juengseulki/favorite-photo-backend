@@ -9,7 +9,7 @@ export const getMarketCards = async (req, res, next) => {
       keyword,
       grade,
       genre,
-      page = 1,
+      cursor,
       limit = 15,
       sort = 'latest',
     } = req.query;
@@ -18,7 +18,7 @@ export const getMarketCards = async (req, res, next) => {
       keyword,
       grade,
       genre,
-      page: Number(page),
+      cursor: cursor ? Number(cursor) : undefined,
       limit: Number(limit),
       sort,
     });
