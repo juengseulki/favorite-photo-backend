@@ -100,10 +100,17 @@ export const getMyCardsService = async ({
     quantity: card.cardCopies.length,
   }));
 
+  const totalPages = Math.ceil(totalCount / limit);
+  const hasNextPage = page < totalPages;
+
   return {
-    cards: formattedCards,
-    totalCount,
-    currentPage: page,
-    totalPages: Math.ceil(totalCount / limit),
+    items: formattedCards,
+    meta: {
+      page,
+      limit,
+      totalCount,
+      totalPages,
+      hasNextPage,
+    },
   };
 };
