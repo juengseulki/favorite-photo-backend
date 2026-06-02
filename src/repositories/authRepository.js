@@ -37,7 +37,7 @@ export const findRefreshToken = (tokenHash) =>
   prisma.refreshToken.findUnique({ where: { tokenHash } });
 
 export const deleteRefreshToken = (tokenHash) =>
-  prisma.refreshToken.delete({ where: { tokenHash } });
+  prisma.refreshToken.deleteMany({ where: { tokenHash } });
 
 export const deleteAllRefreshTokensByUserId = (userId) =>
   prisma.refreshToken.deleteMany({ where: { userId } });
