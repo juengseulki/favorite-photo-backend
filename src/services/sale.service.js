@@ -1,6 +1,7 @@
 import cardCopyRepository from '../repositories/cardCopy.repository.js';
 import saleItemRepository from '../repositories/saleItem.repository.js';
 import saleRepositioy from '../repositories/sale.repository.js';
+import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
 
 export const createSale = async ({
   photoCardId,
@@ -23,7 +24,7 @@ export const createSale = async ({
     });
     const saleId = sale.id;
 
-    const { saleItems, cardCopies } = createSaleItemsAndCards(
+    const { saleItems, cardCopies } = await createSaleItemsAndCards(
       photoCardId,
       quantity,
       saleId,
@@ -53,7 +54,8 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   //quantity의 경우에는, 변경이 되었을 시, SaleItem의 변경이 필요해짐.
   //기존 quantity 정보 가져오기
   if (quantity) {
-    const prevQuantity = await saleItemRepository.countSaleItemsForSale(saleId);
+    const prevQuantity =
+      await saleItemRepository.countActiveSaleItemsForSale(saleId);
 
     if (quantity !== prevQuantity) {
       //원래 기존의 카드를 모두 OWNED처리 후, 새로운 SaleItem을만들으려 했으나, 이 방식은 이전에 사용됐던 카드가 재 사용될 경우, 한 카드가 두 SaleItem에 등록되면서, 실제로 판매 중인 카드의 수량을 셀 때, 한 카드가 두번 세어지는 문제상황이 발생함.
@@ -71,22 +73,25 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
         //개수만큼 cardCopyId의 상태를 ON_SALE로 바꾸고, 남은 개수는 saleItem을 새로 추가하기.
         let remainedCount = 0;
         if (addCount === usedCopyCardsId.length)
-          await cardCopyRepository.switchCardsStatus(
-            usedCopyCardsId,
-            'ON_SALE'
-          );
+          await cardCopyRepository.switchCardsStatus({
+            userId,
+            cardIds: usedCopyCardsId,
+            newStatus: 'ON_SALE',
+          });
         else if (addCount > usedCopyCardsId.length) {
-          await cardCopyRepository.switchCardsStatus(
-            usedCopyCardsId,
-            'ON_SALE'
-          );
+          await cardCopyRepository.switchCardsStatus({
+            userId,
+            cardIds: usedCopyCardsId,
+            newStatus: 'ON_SALE',
+          });
           remainedCount = addCount - usedCopyCardsId.length;
         } else if (addCount < usedCopyCardsId.length) {
           const slicedCopyCardsId = usedCopyCardsId.slice(0, addCount);
-          await cardCopyRepository.switchCardsStatus(
-            slicedCopyCardsId,
-            'ON_SALE'
-          );
+          await cardCopyRepository.switchCardsStatus({
+            userId,
+            cardIds: slicedCopyCardsId,
+            newStatus: 'ON_SALE',
+          });
         }
         //개수만큼 새로운 카드 추가 -
         if (remainedCount > 0) {
@@ -107,10 +112,12 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
           subCount
         );
         const cardCopyIds = saleItems.map((item) => item.cardCopyId);
-        const cards = await cardCopyRepository.switchCardsStatus(
-          cardCopyIds,
-          'OWNED'
-        );
+        const cards = await cardCopyRepository.switchCardsStatus({
+          userId,
+          cardIds: cardCopyIds,
+          prevStatus: 'ON_SALE',
+          newStatus: 'OWNED',
+        });
       }
 
       //   //1. 기존의 CardCopy를 모두 OWNED처리
@@ -135,13 +142,37 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   return await saleRepositioy.getSale(saleId);
 };
 
-export const cancelSale = async (saleId) => {
+export const cancelSale = async (saleId, userId) => {
   //1. Sale에 연결된 cardCopy의 상태는 ON_SALE -> OWNED로 변경
   const saleItems = await saleItemRepository.getActiveSaleItemsBySaleId(saleId);
   const cardCopyIds = saleItems.map((item) => item.cardCopyId);
-  await cardCopyRepository.switchCardsStatus(cardCopyIds, 'OWNED');
+  await cardCopyRepository.switchCardsStatus({
+    userId,
+    cardIds: cardCopyIds,
+    prevStatus: 'ON_SALE',
+    newStatus: 'OWNED',
+  });
 
-  //2. Sale 삭제
+  //2. 교환 대기 중이었던 cardCopy의 상태를 변경
+  const exPro =
+    await exchangeProposalRepository.getExchangeProposalBySaleId(saleId);
+  const offeredCardIds = exPro.map((pro) => pro.offerdCardCopyId);
+  cardCopyRepository.switchCardsStatus({
+    userId,
+    cardIds: offeredCardIds,
+    prevStatus: 'EXCHANGING',
+    newStatus: 'OWNED',
+  });
+
+  //3. ExchangeProposal의 상태를 변경
+  const exProIds = exPro.map((pro) => pro.id);
+  await exchangeProposalRepository.setProposalsStatus(
+    exProIds,
+    'PENDING',
+    'CANCELED'
+  );
+
+  //3. Sale 삭제
   await saleRepositioy.cancelSale(saleId);
 };
 
@@ -166,10 +197,11 @@ const createSaleItemsAndCards = async (
   const saleItems = await saleItemRepository.createSaleItems(saleItemsData);
 
   //3. cardCopy 상태 변경 : 가져온 cardCopy에 대해, 상태를 ON_SALE로 변경한다.
-  const onSaleCards = await cardCopyRepository.switchCardsStatus(
-    availableCardsIds,
-    'ON_SALE'
-  );
+  const onSaleCards = await cardCopyRepository.switchCardsStatus({
+    userId,
+    cardIds: availableCardsIds,
+    newStatus: 'ON_SALE',
+  });
 
   return { saleItems, onSaleCards };
 };

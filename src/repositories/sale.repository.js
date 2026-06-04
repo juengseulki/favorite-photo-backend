@@ -9,12 +9,14 @@ export const createSale = async ({
   exchangeDescription,
 }) => {
   return await prisma.sale.create({
-    data: { sellerId: userId },
-    photoCardId: Number(photoCardId),
-    price,
-    exchangeGrade,
-    exchangeGenre,
-    exchangeDescription,
+    data: {
+      sellerId: userId,
+      photoCardId: Number(photoCardId),
+      price,
+      exchangeGrade,
+      exchangeGenre,
+      exchangeDescription,
+    },
   });
 };
 
@@ -33,7 +35,7 @@ export const cancelSale = async (saleId) => {
 };
 
 export const getSale = async (saleId) => {
-  return await prisma.sale.find({
+  return await prisma.sale.findUnique({
     where: { id: saleId },
   });
 };

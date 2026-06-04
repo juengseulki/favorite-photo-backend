@@ -11,12 +11,19 @@ export const getCardCopys = async (quantity, photoCardId, userId) => {
   });
 };
 
-export const switchCardsStatus = async (cardIds, status) => {
+export const switchCardsStatus = async ({
+  userId,
+  cardIds,
+  prevStatus,
+  newStatus,
+}) => {
   return await prisma.cardCopy.updateMany({
     where: {
       id: { in: cardIds },
+      status: prevStatus,
+      ownerId: userId,
     },
-    data: { status: status },
+    data: { status: newStatus },
   });
 };
 
