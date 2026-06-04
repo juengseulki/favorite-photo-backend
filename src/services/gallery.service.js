@@ -1,4 +1,5 @@
 import prisma from '../configs/prisma.js';
+import AppError from '../utils/AppError.js';
 
 export const getMyCardsService = async ({
   userId,
@@ -125,6 +126,66 @@ export const postMyCardsService = async ({
   price,
   totalQuantity,
 }) => {
+  if (!name) {
+    throw new AppError(400, 'MISSING_NAME', '카드 이름을 입력해 주세요.');
+  }
+
+  if (!imageUrl) {
+    throw new AppError(400, 'MISSING_IMAGE_URL', '이미지 URL을 입력해 주세요.');
+  }
+
+  if (!grade) {
+    throw new AppError(400, 'MISSING_GRADE', '등급을 입력해 주세요.');
+  }
+
+  if (!['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'].includes(grade)) {
+    throw new AppError(400, 'INVALID_GRADE', '유효하지 않은 등급입니다.');
+  }
+
+  if (!genre) {
+    throw new AppError(400, 'MISSING_GENRE', '장르를 입력해 주세요.');
+  }
+
+  if (
+    !['ALBUM', 'SPECIAL', 'FAN_SIGN', 'SEASON_GREETING', 'CONCERT'].includes(
+      genre
+    )
+  ) {
+    throw new AppError(400, 'INVALID_GENRE', '유효하지 않은 장르입니다.');
+  }
+
+  if (!totalQuantity) {
+    throw new AppError(
+      400,
+      'MISSING_TOTAL_QUANTITY',
+      '발행 수량을 입력해 주세요.'
+    );
+  }
+
+  if (totalQuantity <= 0) {
+    throw new AppError(
+      400,
+      'INVALID_TOTAL_QUANTITY',
+      '발행 수량은 1개 이상이어야 합니다.'
+    );
+  }
+
+  if (totalQuantity > 10) {
+    throw new AppError(
+      400,
+      'TOTAL_QUANTITY_LIMIT_EXCEEDED',
+      '카드는 최대 10장까지 발행할 수 있습니다.'
+    );
+  }
+
+  if (!price) {
+    throw new AppError(400, 'MISSING_PRICE', '가격을 입력해 주세요.');
+  }
+
+  if (price <= 0) {
+    throw new AppError(400, 'INVALID_PRICE', '가격은 1 이상이어야 합니다.');
+  }
+
   const card = await prisma.photoCard.create({
     data: {
       name,
@@ -137,6 +198,16 @@ export const postMyCardsService = async ({
       creatorId: userId,
     },
   });
+
+  for (let i = 1; i <= totalQuantity; i++) {
+    await prisma.cardCopy.create({
+      data: {
+        photoCardId: card.id,
+        ownerId: userId,
+        serialNumber: `CARD-${card.id}-${String(i).padStart(3, '0')}`,
+      },
+    });
+  }
 
   return {
     id: card.id,

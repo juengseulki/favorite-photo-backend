@@ -5,7 +5,7 @@ import {
 
 export const getMyCards = async (req, res, next) => {
   try {
-    const userId = 'b8d131c1-fedc-4fe6-bb20-5f71331d0d3c';
+    const userId = req.user.id;
 
     const {
       keyword,
@@ -37,7 +37,7 @@ export const getMyCards = async (req, res, next) => {
 
 export const postMyCards = async (req, res, next) => {
   try {
-    const userId = 'b8d131c1-fedc-4fe6-bb20-5f71331d0d3c';
+    const userId = req.user.id;
 
     const { name, description, imageUrl, grade, genre, price, totalQuantity } =
       req.body;
