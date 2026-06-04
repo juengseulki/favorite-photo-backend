@@ -63,7 +63,7 @@ export const cancelSale = async (req, res, next) => {
   try {
     const { saleId } = req.params;
     await saleService.cancelSale(saleId);
-    res.json({ message: 'success' });
+    res.status(204).json({ message: 'success' });
   } catch (e) {
     next(e);
   }
