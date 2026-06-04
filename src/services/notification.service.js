@@ -1,4 +1,5 @@
 import prisma from '../configs/prisma.js';
+import AppError from '../utils/AppError.js';
 
 export const getNotificationsService = async (userId) => {
   const notifications = await prisma.notification.findMany({
@@ -28,11 +29,19 @@ export const readNotificationsService = async (userId, notificationId) => {
   });
 
   if (!notifications) {
-    throw new AppError('알림을 찾을 수 없습니다.', 404);
+    throw new AppError(
+      404,
+      'NOTIFICATION_NOT_FOUND',
+      '알림을 찾을 수 없습니다.'
+    );
   }
 
   if (notifications.userId !== userId) {
-    throw new AppError('해당 알림에 접근할 권한이 없습니다.', 403);
+    throw new AppError(
+      403,
+      'FORBIDDEN_NOTIFICATION',
+      '해당 알림에 접근할 권한이 없습니다.'
+    );
   }
 
   const updatedNotification = await prisma.notification.update({
