@@ -11,6 +11,6 @@ router.use('/auth', authRoutes);
 router.use('/', exchangeRoutes);
 router.use('/', galleryRoutes);
 router.use('/market', marketRoutes);
-router.use('/notification', notification);
+router.use('/notifications', notification);
 
 export default router;
