@@ -162,6 +162,7 @@ export const googleOAuthComplete = async ({
   providerAccountId,
   email,
   nickname,
+  provider = 'GOOGLE',
 }) => {
   if (!nickname || nickname.length < 2 || nickname.length > 12) {
     throw new AppError(
@@ -183,7 +184,7 @@ export const googleOAuthComplete = async ({
   const user = await authRepository.createOAuthUser({
     email,
     nickname,
-    provider: 'GOOGLE',
+    provider,
     providerAccountId,
   });
 

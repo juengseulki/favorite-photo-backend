@@ -11,6 +11,9 @@ router.post('/refresh', authController.refresh);
 router.post('/logout', authController.logout);
 router.get('/me', authenticate, authController.getMe);
 
+// OAuth 공통 닉네임 설정 완료
+router.post('/oauth/complete', authController.oauthComplete);
+
 // Google OAuth
 router.get(
   '/google',
@@ -25,8 +28,23 @@ router.get(
     failureRedirect: '/login',
     session: false,
   }),
-  authController.googleCallback
+  authController.oauthCallback
 );
-router.post('/google/complete', authController.googleOAuthComplete);
+
+// Kakao OAuth
+router.get('/kakao', passport.authenticate('kakao', { session: false }));
+router.get(
+  '/kakao/callback',
+  passport.authenticate('kakao', { failureRedirect: '/login', session: false }),
+  authController.oauthCallback
+);
+
+// Naver OAuth
+router.get('/naver', passport.authenticate('naver', { session: false }));
+router.get(
+  '/naver/callback',
+  passport.authenticate('naver', { failureRedirect: '/login', session: false }),
+  authController.oauthCallback
+);
 
 export default router;

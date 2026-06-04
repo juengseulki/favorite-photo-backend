@@ -1,7 +1,7 @@
 import * as authService from '../services/authService.js';
 import {
   findUserWithPoint,
-  findUserWithPoint as findUser,
+  createRefreshToken,
 } from '../repositories/authRepository.js';
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
 import { hashToken } from '../utils/hash.js';
@@ -65,32 +65,32 @@ export const logout = async (req, res) => {
   });
 };
 
-export const googleCallback = async (req, res) => {
+// Google / Kakao / Naver 공통 OAuth 콜백
+export const oauthCallback = async (req, res) => {
   const CLIENT_URL = (
     process.env.CLIENT_URL ?? 'http://localhost:3000'
   ).replace(/\/$/, '');
-  const googleUser = req.user;
+  const oauthUser = req.user;
 
   // 신규 사용자 — 닉네임 설정 페이지로 리다이렉트
-  if (googleUser?.isNew) {
+  if (oauthUser?.isNew) {
     const params = new URLSearchParams({
-      providerAccountId: googleUser.providerAccountId,
-      ...(googleUser.email && { email: googleUser.email }),
+      provider: oauthUser.provider,
+      providerAccountId: oauthUser.providerAccountId,
+      ...(oauthUser.email && { email: oauthUser.email }),
     });
     return res.redirect(`${CLIENT_URL}/auth/setup-nickname?${params}`);
   }
 
   // 기존 사용자 — 토큰 발급 후 프론트로 리다이렉트
-  const accessToken = signAccessToken({ userId: googleUser.id });
-  const refreshToken = signRefreshToken({ userId: googleUser.id });
+  const accessToken = signAccessToken({ userId: oauthUser.id });
+  const refreshToken = signRefreshToken({ userId: oauthUser.id });
 
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
-  const { createRefreshToken } =
-    await import('../repositories/authRepository.js');
   await createRefreshToken({
-    userId: googleUser.id,
+    userId: oauthUser.id,
     tokenHash: hashToken(refreshToken),
     expiresAt,
   });
@@ -105,13 +105,15 @@ export const googleCallback = async (req, res) => {
   res.redirect(`${CLIENT_URL}/auth/callback?token=${accessToken}`);
 };
 
-export const googleOAuthComplete = async (req, res) => {
-  const { providerAccountId, email, nickname } = req.body;
+// 신규 OAuth 사용자 닉네임 설정 완료 (Google / Kakao / Naver 공통)
+export const oauthComplete = async (req, res) => {
+  const { provider, providerAccountId, email, nickname } = req.body;
   const { user, accessToken, refreshToken } =
     await authService.googleOAuthComplete({
       providerAccountId,
       email,
       nickname,
+      provider: provider ?? 'GOOGLE',
     });
 
   res.cookie('refreshToken', refreshToken, {
