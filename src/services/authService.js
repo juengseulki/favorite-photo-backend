@@ -73,7 +73,12 @@ export const register = async ({ email, nickname, password }) => {
   const tokens = await generateTokens(user.id);
 
   return {
-    user: { id: user.id, email: user.email, nickname: user.nickname },
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      point: SIGNUP_POINTS,
+    },
     ...tokens,
   };
 };
@@ -107,10 +112,16 @@ export const login = async ({ email, password }) => {
     );
   }
 
+  const userWithPoint = await authRepository.findUserWithPoint(user.id);
   const tokens = await generateTokens(user.id);
 
   return {
-    user: { id: user.id, email: user.email, nickname: user.nickname },
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      point: userWithPoint?.point?.balance ?? 0,
+    },
     ...tokens,
   };
 };

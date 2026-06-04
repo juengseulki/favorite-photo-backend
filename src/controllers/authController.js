@@ -1,4 +1,5 @@
 import * as authService from '../services/authService.js';
+import { findUserWithPoint } from '../repositories/authRepository.js';
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -59,9 +60,17 @@ export const logout = async (req, res) => {
   });
 };
 
-export const getMe = (req, res) => {
+export const getMe = async (req, res) => {
+  const user = await findUserWithPoint(req.user.id);
   res.json({
-    data: { user: req.user },
+    data: {
+      user: {
+        id: user.id,
+        email: user.email,
+        nickname: user.nickname,
+        point: user.point?.balance ?? 0,
+      },
+    },
     message: '사용자 정보를 가져왔습니다.',
   });
 };

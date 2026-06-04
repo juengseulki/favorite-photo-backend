@@ -8,6 +8,9 @@ export const findUserByNickname = (nickname) =>
 
 export const findUserById = (id) => prisma.user.findUnique({ where: { id } });
 
+export const findUserWithPoint = (id) =>
+  prisma.user.findUnique({ where: { id }, include: { point: true } });
+
 export const createUserWithPoint = ({ email, nickname, password }) =>
   prisma.$transaction(async (tx) => {
     const user = await tx.user.create({
