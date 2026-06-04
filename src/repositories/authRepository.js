@@ -44,3 +44,45 @@ export const deleteRefreshToken = (tokenHash) =>
 
 export const deleteAllRefreshTokensByUserId = (userId) =>
   prisma.refreshToken.deleteMany({ where: { userId } });
+
+export const findOAuthAccount = (provider, providerAccountId) =>
+  prisma.oAuthAccount.findUnique({
+    where: { provider_providerAccountId: { provider, providerAccountId } },
+    include: { user: { include: { point: true } } },
+  });
+
+export const createOAuthUser = ({
+  email,
+  nickname,
+  provider,
+  providerAccountId,
+}) =>
+  prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { email, nickname },
+    });
+
+    await tx.oAuthAccount.create({
+      data: { userId: user.id, provider, providerAccountId },
+    });
+
+    await tx.point.create({
+      data: { userId: user.id, balance: 2000 },
+    });
+
+    await tx.pointHistory.create({
+      data: {
+        userId: user.id,
+        amount: 2000,
+        reason: 'SIGN_UP',
+        description: '회원가입 축하 포인트',
+      },
+    });
+
+    return user;
+  });
+
+export const linkOAuthAccount = (userId, provider, providerAccountId) =>
+  prisma.oAuthAccount.create({
+    data: { userId, provider, providerAccountId },
+  });

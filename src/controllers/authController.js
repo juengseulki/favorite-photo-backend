@@ -1,5 +1,10 @@
 import * as authService from '../services/authService.js';
-import { findUserWithPoint } from '../repositories/authRepository.js';
+import {
+  findUserWithPoint,
+  findUserWithPoint as findUser,
+} from '../repositories/authRepository.js';
+import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
+import { hashToken } from '../utils/hash.js';
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -57,6 +62,68 @@ export const logout = async (req, res) => {
   res.json({
     data: null,
     message: '로그아웃되었습니다.',
+  });
+};
+
+export const googleCallback = async (req, res) => {
+  const CLIENT_URL = (
+    process.env.CLIENT_URL ?? 'http://localhost:3000'
+  ).replace(/\/$/, '');
+  const googleUser = req.user;
+
+  // 신규 사용자 — 닉네임 설정 페이지로 리다이렉트
+  if (googleUser?.isNew) {
+    const params = new URLSearchParams({
+      providerAccountId: googleUser.providerAccountId,
+      ...(googleUser.email && { email: googleUser.email }),
+    });
+    return res.redirect(`${CLIENT_URL}/auth/setup-nickname?${params}`);
+  }
+
+  // 기존 사용자 — 토큰 발급 후 프론트로 리다이렉트
+  const accessToken = signAccessToken({ userId: googleUser.id });
+  const refreshToken = signRefreshToken({ userId: googleUser.id });
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const { createRefreshToken } =
+    await import('../repositories/authRepository.js');
+  await createRefreshToken({
+    userId: googleUser.id,
+    tokenHash: hashToken(refreshToken),
+    expiresAt,
+  });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.redirect(`${CLIENT_URL}/auth/callback?token=${accessToken}`);
+};
+
+export const googleOAuthComplete = async (req, res) => {
+  const { providerAccountId, email, nickname } = req.body;
+  const { user, accessToken, refreshToken } =
+    await authService.googleOAuthComplete({
+      providerAccountId,
+      email,
+      nickname,
+    });
+
+  res.cookie('refreshToken', refreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.status(201).json({
+    data: { user, accessToken },
+    message: '회원가입이 완료되었습니다.',
   });
 };
 

@@ -158,6 +158,48 @@ export const refresh = async (incomingToken) => {
   return generateTokens(payload.userId);
 };
 
+export const googleOAuthComplete = async ({
+  providerAccountId,
+  email,
+  nickname,
+}) => {
+  if (!nickname || nickname.length < 2 || nickname.length > 12) {
+    throw new AppError(
+      400,
+      'INVALID_NICKNAME',
+      '닉네임은 2자 이상 12자 이하로 입력해 주세요.'
+    );
+  }
+
+  const existingNickname = await authRepository.findUserByNickname(nickname);
+  if (existingNickname) {
+    throw new AppError(
+      409,
+      'NICKNAME_CONFLICT',
+      '이미 사용 중인 닉네임입니다.'
+    );
+  }
+
+  const user = await authRepository.createOAuthUser({
+    email,
+    nickname,
+    provider: 'GOOGLE',
+    providerAccountId,
+  });
+
+  const tokens = await generateTokens(user.id);
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      point: 2000,
+    },
+    ...tokens,
+  };
+};
+
 export const logout = async (incomingToken) => {
   if (!incomingToken) return;
 
