@@ -256,15 +256,15 @@ model Sale {
 
   photoCard PhotoCard @relation(fields: [photoCardId], references: [id])
 
-  exchangeGrade       CardGrade?
-  exchangeGenre       CardGenre?
-  exchangeDescription String?
-
   saleItems SaleItem[]
 
   purchases Purchase[]
 
   exchangeProposals ExchangeProposal[]
+
+  exchangeGrade       CardGrade?
+  exchangeGenre       CardGenre?
+  exchangeDescription String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -286,7 +286,6 @@ model SaleItem {
   createdAt    DateTime      @default(now())
   purchaseItem PurchaseItem?
 
-  @@unique([cardCopyId])
 }
 
 model Purchase {
