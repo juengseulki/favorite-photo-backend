@@ -1,16 +1,21 @@
 //요청 데이터 검증, 서비스 호출, 응답 반환 역할
 
-import saleService from '../services/saleService';
-import AppError from '../utils/AppError';
+import saleService from '../services/saleService.js';
+import AppError from '../utils/AppError.js';
 
-const saleController = { createSale, modifySale, cancelSale };
-
-export const createSale = (req, res, next) => {
+export const createSale = async (req, res, next) => {
   //새로운 sale 데이터 검증
   try {
-    const { photoCardId, price, quantity, exchangeInfo } = req.body;
+    const {
+      photoCardId,
+      price,
+      quantity,
+      exchangeGrade,
+      exchangeGenre,
+      exchangeDescription,
+    } = req.body;
     //validation_error 검증
-    if (!photoCardId || !price || !quantity || !exchangeInfo) {
+    if (!photoCardId || !price || !quantity) {
       throw new AppError(
         400,
         'VALIDATION_ERROR',
@@ -23,25 +28,33 @@ export const createSale = (req, res, next) => {
       //TODO: 내가 여기에서 뭔 에러를 던져야 하지? 유저 id가 없는 것 -> 로그인 되지 않은 거라는 건데,
     }
     //1. Sale 만들기
-    const sale = saleService.createSale(
+    const response = await saleService.createSale({
       photoCardId,
       price,
-      exchangeInfo,
-      userId
-    );
-    //2. quantity만큼 SaleItem을 만들어서, cardCopy와 연결하기
-    const saleId = sale.id;
-    const cardCopyId = saleService.getCardCopyId();
-    //3. cardCopy의 status를 ON_SALE로 변경
+      quantity,
+      exchangeGrade,
+      exchangeGenre,
+      exchangeDescription,
+      userId,
+    });
     res.json({ data: response, message: 'success' });
   } catch (e) {
     next(e);
   }
 };
-export const modifySale = (req, res, next) => {
+
+export const modifySale = async (req, res, next) => {
   try {
     const { saleId } = req.params;
-    const {} = req.body;
+    const userId = req.user.id;
+    const { photoCardId, data } = req.body;
+    const response = await saleService.modifySale(
+      saleId,
+      photoCardId,
+      userId,
+      data
+    );
+    res.json({ data: response, message: 'success' });
   } catch (e) {
     next(e);
   }
@@ -54,4 +67,5 @@ export const cancelSale = (req, res, next) => {
   }
 };
 
+const saleController = { createSale, modifySale, cancelSale };
 export default saleController;

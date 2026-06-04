@@ -4,6 +4,7 @@ import exchangeRoutes from './exchange.routes.js';
 import galleryRoutes from './gallery.route.js';
 import marketRoutes from './market.route.js';
 import notification from './notification.route.js';
+import saleRoutes from './saleRoutes.js';
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use('/', exchangeRoutes);
 router.use('/', galleryRoutes);
 router.use('/market', marketRoutes);
 router.use('/notifications', notification);
+router.use('/sales', saleRoutes);
 
 export default router;
