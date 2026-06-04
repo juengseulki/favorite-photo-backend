@@ -46,6 +46,8 @@ export async function createProposal({
   offeredCardCopyId,
   description,
 }) {
+  void description;
+
   if (!saleId || Number.isNaN(saleId))
     throw badRequest('saleId가 올바르지 않습니다.');
   if (!offeredCardCopyId || Number.isNaN(offeredCardCopyId)) {
@@ -64,6 +66,20 @@ export async function createProposal({
     );
   if (sale.sellerId === userId)
     throw forbidden('본인 판매글에는 교환 제안을 보낼 수 없습니다.');
+  if (sale.saleItems.length === 0) {
+    throw conflict('판매글에 연결된 판매 카드가 없습니다.', 'VALIDATION_ERROR');
+  }
+
+  const saleCardCopy = await prisma.cardCopy.findUnique({
+    where: { id: sale.saleItems[0].cardCopyId },
+  });
+  if (!saleCardCopy) throw notFound('판매 카드 복사본을 찾을 수 없습니다.');
+  if (saleCardCopy.status !== 'ON_SALE') {
+    throw conflict(
+      '현재 교환 가능한 판매 카드 상태가 아닙니다.',
+      'VALIDATION_ERROR'
+    );
+  }
 
   const offeredCopy = await prisma.cardCopy.findUnique({
     where: { id: offeredCardCopyId },
@@ -95,13 +111,28 @@ export async function createProposal({
 }
 
 // 보낸 요청/받은 요청 목록을 조건에 맞게 조회
-export async function listProposals({ userId, type, status }) {
+export async function listProposals({
+  userId,
+  type,
+  status,
+  page = 1,
+  limit = 10,
+}) {
   if (!['sent', 'received'].includes(type)) {
     throw badRequest('type은 sent 또는 received만 가능합니다.');
   }
   if (status && !EXCHANGE_STATUS.has(status)) {
     throw badRequest('유효하지 않은 교환 상태값입니다.');
   }
+  if (!Number.isInteger(page) || page < 1) {
+    throw badRequest('page는 1 이상의 정수여야 합니다.');
+  }
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw badRequest('limit는 1 이상의 정수여야 합니다.');
+  }
+
+  const safeLimit = Math.min(limit, 50);
+  const skip = (page - 1) * safeLimit;
 
   const where = {
     ...(status ? { status } : {}),
@@ -110,29 +141,65 @@ export async function listProposals({ userId, type, status }) {
       : { sale: { sellerId: userId } }),
   };
 
-  return prisma.exchangeProposal.findMany({
-    where,
-    include: {
-      proposer: { select: { id: true, nickname: true } },
-      sale: {
-        select: {
-          id: true,
-          sellerId: true,
-          photoCardId: true,
-          price: true,
-          status: true,
+  const [totalCount, items] = await Promise.all([
+    prisma.exchangeProposal.count({ where }),
+    prisma.exchangeProposal.findMany({
+      where,
+      include: {
+        proposer: { select: { id: true, nickname: true } },
+        sale: {
+          select: {
+            id: true,
+            sellerId: true,
+            photoCardId: true,
+            price: true,
+            status: true,
+            photoCard: {
+              select: {
+                id: true,
+                name: true,
+                imageUrl: true,
+                grade: true,
+                genre: true,
+              },
+            },
+          },
+        },
+        offeredCardCopy: {
+          select: {
+            id: true,
+            ownerId: true,
+            photoCardId: true,
+            status: true,
+            serialNumber: true,
+            photoCard: {
+              select: {
+                id: true,
+                name: true,
+                imageUrl: true,
+                grade: true,
+                genre: true,
+              },
+            },
+          },
         },
       },
-      offeredCardCopy: {
-        select: {
-          id: true,
-          ownerId: true,
-          photoCardId: true,
-          status: true,
-          serialNumber: true,
-        },
-      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: safeLimit,
+    }),
+  ]);
+
+  const totalPages = Math.ceil(totalCount / safeLimit);
+
+  return {
+    items,
+    meta: {
+      page,
+      limit: safeLimit,
+      totalCount,
+      totalPages,
+      hasNextPage: page < totalPages,
     },
-    orderBy: { createdAt: 'desc' },
-  });
+  };
 }

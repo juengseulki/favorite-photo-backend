@@ -73,7 +73,12 @@ export const register = async ({ email, nickname, password }) => {
   const tokens = await generateTokens(user.id);
 
   return {
-    user: { id: user.id, email: user.email, nickname: user.nickname },
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      point: SIGNUP_POINTS,
+    },
     ...tokens,
   };
 };
@@ -107,10 +112,16 @@ export const login = async ({ email, password }) => {
     );
   }
 
+  const userWithPoint = await authRepository.findUserWithPoint(user.id);
   const tokens = await generateTokens(user.id);
 
   return {
-    user: { id: user.id, email: user.email, nickname: user.nickname },
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      point: userWithPoint?.point?.balance ?? 0,
+    },
     ...tokens,
   };
 };
@@ -145,6 +156,49 @@ export const refresh = async (incomingToken) => {
   // 기존 토큰 삭제 후 재 발급
   await authRepository.deleteRefreshToken(tokenHash);
   return generateTokens(payload.userId);
+};
+
+export const googleOAuthComplete = async ({
+  providerAccountId,
+  email,
+  nickname,
+  provider = 'GOOGLE',
+}) => {
+  if (!nickname || nickname.length < 2 || nickname.length > 12) {
+    throw new AppError(
+      400,
+      'INVALID_NICKNAME',
+      '닉네임은 2자 이상 12자 이하로 입력해 주세요.'
+    );
+  }
+
+  const existingNickname = await authRepository.findUserByNickname(nickname);
+  if (existingNickname) {
+    throw new AppError(
+      409,
+      'NICKNAME_CONFLICT',
+      '이미 사용 중인 닉네임입니다.'
+    );
+  }
+
+  const user = await authRepository.createOAuthUser({
+    email,
+    nickname,
+    provider,
+    providerAccountId,
+  });
+
+  const tokens = await generateTokens(user.id);
+
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      point: 2000,
+    },
+    ...tokens,
+  };
 };
 
 export const logout = async (incomingToken) => {
