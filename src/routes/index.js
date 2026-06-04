@@ -4,7 +4,7 @@ import exchangeRoutes from './exchange.routes.js';
 import galleryRoutes from './gallery.route.js';
 import marketRoutes from './market.route.js';
 import notification from './notification.route.js';
-import saleRoutes from './saleRoutes.js';
+import saleRoutes from './sale.route.js';
 
 const router = Router();
 

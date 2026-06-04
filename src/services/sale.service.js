@@ -1,6 +1,6 @@
-import cardCopyRepository from '../repositories/cardCopyRepository.js';
-import saleItemRepository from '../repositories/saleItemRepository.js';
-import saleRepositioy from '../repositories/saleRepository.js';
+import cardCopyRepository from '../repositories/cardCopy.repository.js';
+import saleItemRepository from '../repositories/saleItem.repository.js';
+import saleRepositioy from '../repositories/sale.repository.js';
 
 export const createSale = async ({
   photoCardId,

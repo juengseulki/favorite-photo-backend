@@ -1,6 +1,6 @@
 //요청 데이터 검증, 서비스 호출, 응답 반환 역할
 
-import saleService from '../services/saleService.js';
+import saleService from '../services/sale.service.js';
 import AppError from '../utils/AppError.js';
 
 export const createSale = async (req, res, next) => {
@@ -37,7 +37,7 @@ export const createSale = async (req, res, next) => {
       exchangeDescription,
       userId,
     });
-    res.json({ data: response, message: 'success' });
+    res.status(201).json({ data: response, message: 'success' });
   } catch (e) {
     next(e);
   }
@@ -63,7 +63,7 @@ export const cancelSale = async (req, res, next) => {
   try {
     const { saleId } = req.params;
     await saleService.cancelSale(saleId);
-    res.json {message:'success'}
+    res.json({ message: 'success' });
   } catch (e) {
     next(e);
   }
