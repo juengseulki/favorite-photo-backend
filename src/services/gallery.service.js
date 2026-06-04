@@ -123,7 +123,7 @@ export const postMyCardsService = async ({
   imageUrl,
   grade,
   genre,
-  price,
+  initialPrice,
   totalQuantity,
 }) => {
   if (!name) {
@@ -178,47 +178,63 @@ export const postMyCardsService = async ({
     );
   }
 
-  if (!price) {
-    throw new AppError(400, 'MISSING_PRICE', '가격을 입력해 주세요.');
+  if (!initialPrice) {
+    throw new AppError(
+      400,
+      'MISSING_INITIAL_PRICE',
+      '초기 가격을 입력해 주세요.'
+    );
   }
 
-  if (price <= 0) {
-    throw new AppError(400, 'INVALID_PRICE', '가격은 1 이상이어야 합니다.');
+  if (initialPrice <= 0) {
+    throw new AppError(
+      400,
+      'INVALID_INITIAL_PRICE',
+      '초기 가격은 1 이상이어야 합니다.'
+    );
   }
 
-  const card = await prisma.photoCard.create({
-    data: {
-      name,
-      description,
-      imageUrl,
-      grade,
-      genre,
-      totalQuantity,
-      initialPrice: price,
-      creatorId: userId,
-    },
-  });
-
-  for (let i = 1; i <= totalQuantity; i++) {
-    await prisma.cardCopy.create({
+  const result = await prisma.$transaction(async (tx) => {
+    const photoCard = await tx.photoCard.create({
       data: {
-        photoCardId: card.id,
-        ownerId: userId,
-        serialNumber: `CARD-${card.id}-${String(i).padStart(3, '0')}`,
+        name,
+        description,
+        imageUrl,
+        grade,
+        genre,
+        totalQuantity,
+        initialPrice,
+        creatorId: userId,
       },
     });
-  }
+
+    const cardCopies = [];
+
+    for (let i = 1; i <= totalQuantity; i++) {
+      cardCopies.push({
+        photoCardId: photoCard.id,
+        ownerId: userId,
+        serialNumber: `CARD-${photoCard.id}-${String(i).padStart(3, '0')}`,
+      });
+    }
+
+    await tx.cardCopy.createMany({
+      data: cardCopies,
+    });
+
+    return photoCard;
+  });
 
   return {
-    id: card.id,
-    name: card.name,
-    description: card.description,
-    imageUrl: card.imageUrl,
-    grade: card.grade,
-    genre: card.genre,
-    totalQuantity: card.totalQuantity,
-    initialPrice: card.initialPrice,
-    creatorId: card.creatorId,
-    createdAt: card.createdAt,
+    id: result.id,
+    name: result.name,
+    description: result.description,
+    imageUrl: result.imageUrl,
+    grade: result.grade,
+    genre: result.genre,
+    totalQuantity: result.totalQuantity,
+    initialPrice: result.initialPrice,
+    creatorId: result.creatorId,
+    createdAt: result.createdAt,
   };
 };
