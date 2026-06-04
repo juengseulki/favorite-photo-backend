@@ -262,6 +262,10 @@ model Sale {
 
   exchangeProposals ExchangeProposal[]
 
+  exchangeGrade       CardGrade?
+  exchangeGenre       CardGenre?
+  exchangeDescription String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -282,7 +286,6 @@ model SaleItem {
   createdAt    DateTime      @default(now())
   purchaseItem PurchaseItem?
 
-  @@unique([cardCopyId])
 }
 
 model Purchase {
