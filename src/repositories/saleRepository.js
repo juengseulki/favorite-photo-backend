@@ -25,9 +25,10 @@ export const modifySale = async (saleId, data) => {
   });
 };
 
-export const deleteSale = async (saleId) => {
-  return await prisma.sale.delete({
+export const cancelSale = async (saleId) => {
+  return await prisma.sale.update({
     where: { id: saleId },
+    data: { status: 'CANCELED' },
   });
 };
 
@@ -47,7 +48,7 @@ export const setStatus = async (saleId, status) => {
 const saleRepositioy = {
   createSale,
   modifySale,
-  deleteSale,
+  cancelSale,
   setStatus,
   getSale,
 };

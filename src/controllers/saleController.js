@@ -59,9 +59,11 @@ export const modifySale = async (req, res, next) => {
     next(e);
   }
 };
-export const cancelSale = (req, res, next) => {
+export const cancelSale = async (req, res, next) => {
   try {
     const { saleId } = req.params;
+    await saleService.cancelSale(saleId);
+    res.json {message:'success'}
   } catch (e) {
     next(e);
   }

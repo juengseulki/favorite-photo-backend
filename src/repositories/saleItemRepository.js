@@ -9,7 +9,7 @@ export const createSaleItems = async (datas) => {
 //update는 status 변경 외엔 해야 할 사항 없음.
 //delete도 일어나지 않음. (그저 sale이 종료가 되고, cardcopy는 OWNED상태로 바뀌는 것 뿐.)
 
-export const getSaleItemsForSaleOwned = async (saleId) => {
+export const getInactiveSaleItemsForSale = async (saleId) => {
   return await prisma.saleItem.findMany({
     where: {
       saleId: saleId,
@@ -19,7 +19,8 @@ export const getSaleItemsForSaleOwned = async (saleId) => {
     },
   });
 };
-export const countSaleItemsForSale = async (saleId) => {
+
+export const countActiveSaleItemsForSale = async (saleId) => {
   return await prisma.saleItem.count({
     where: {
       saleId: saleId,
@@ -30,10 +31,16 @@ export const countSaleItemsForSale = async (saleId) => {
   });
 };
 
-export const getSaleItemsBySaleId = async (saleId, quantity = undefined) => {
+export const getActiveSaleItemsBySaleId = async (
+  saleId,
+  quantity = undefined
+) => {
   return await prisma.saleItem.findMany({
     where: {
       saleId: saleId,
+      cardCopy: {
+        status: 'ON_SALE',
+      },
     },
     take: quantity,
   });
@@ -43,8 +50,8 @@ export const getSaleItemsBySaleId = async (saleId, quantity = undefined) => {
 
 const saleItemRepository = {
   createSaleItems,
-  countSaleItemsForSale,
-  getSaleItemsBySaleId,
-  getSaleItemsForSaleOwned,
+  countActiveSaleItemsForSale,
+  getActiveSaleItemsBySaleId,
+  getInactiveSaleItemsForSale,
 };
 export default saleItemRepository;

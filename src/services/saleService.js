@@ -135,10 +135,14 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   return await saleRepositioy.getSale(saleId);
 };
 
-export const cancelSale = async () => {
-  //1. Sale 삭제
-  //2. Sale에 연결된 SaleItem의 status를 안 파는 걸로 처리
-  //3. Sale에 연결된 cardCopy의 상태는 ON_SALE -> OWNED로 변경
+export const cancelSale = async (saleId) => {
+  //1. Sale에 연결된 cardCopy의 상태는 ON_SALE -> OWNED로 변경
+  const saleItems = await saleItemRepository.getActiveSaleItemsBySaleId(saleId);
+  const cardCopyIds = saleItems.map((item) => item.cardCopyId);
+  await cardCopyRepository.switchCardsStatus(cardCopyIds, 'OWNED');
+
+  //2. Sale 삭제
+  await saleRepositioy.cancelSale(saleId);
 };
 
 const createSaleItemsAndCards = async (
