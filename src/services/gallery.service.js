@@ -123,7 +123,7 @@ export const postMyCardsService = async ({
   imageUrl,
   grade,
   genre,
-  price,
+  initialPrice,
   totalQuantity,
 }) => {
   if (!name) {
@@ -178,12 +178,20 @@ export const postMyCardsService = async ({
     );
   }
 
-  if (!price) {
-    throw new AppError(400, 'MISSING_PRICE', '가격을 입력해 주세요.');
+  if (!initialPrice) {
+    throw new AppError(
+      400,
+      'MISSING_INITIAL_PRICE',
+      '초기 가격을 입력해 주세요.'
+    );
   }
 
-  if (price <= 0) {
-    throw new AppError(400, 'INVALID_PRICE', '가격은 1 이상이어야 합니다.');
+  if (initialPrice <= 0) {
+    throw new AppError(
+      400,
+      'INVALID_INITIAL_PRICE',
+      '초기 가격은 1 이상이어야 합니다.'
+    );
   }
 
   const card = await prisma.photoCard.create({
