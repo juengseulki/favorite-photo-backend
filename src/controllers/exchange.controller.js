@@ -41,12 +41,16 @@ export async function createExchangeProposal(req, res) {
 export async function getExchangeProposals(req, res) {
   try {
     const userId = getCurrentUserId(req);
-    const { type = 'received', status } = req.query;
+    const { type = 'received', status, page = '1', limit = '10' } = req.query;
+    const parsedPage = Number(page);
+    const parsedLimit = Number(limit);
 
     const data = await listProposals({
       userId,
       type: String(type),
       status: status ? String(status) : undefined,
+      page: Number.isNaN(parsedPage) ? 1 : parsedPage,
+      limit: Number.isNaN(parsedLimit) ? 10 : Math.min(parsedLimit, 50),
     });
 
     return res.status(200).json({ data, message: 'success' });
