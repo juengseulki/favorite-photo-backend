@@ -194,7 +194,7 @@ export const postMyCardsService = async ({
       grade,
       genre,
       totalQuantity,
-      initialPrice: price,
+      initialPrice,
       creatorId: userId,
     },
   });
