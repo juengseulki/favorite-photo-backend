@@ -1,5 +1,4 @@
 import prisma from '../configs/prisma.js';
-import AppError from '../utils/AppError.js';
 
 export const getNotificationsService = async (userId) => {
   const notifications = await prisma.notification.findMany({
