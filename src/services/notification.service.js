@@ -46,3 +46,17 @@ export const readNotificationsService = async (userId, notificationId) => {
 
   return updatedNotification;
 };
+
+export const readAllNotificationsService = async (userId) => {
+  const updatedNotification = await prisma.notification.updateMany({
+    where: {
+      userId,
+      isRead: false,
+    },
+    data: {
+      isRead: true,
+    },
+  });
+
+  return updatedNotification;
+};
