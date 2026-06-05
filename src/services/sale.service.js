@@ -204,7 +204,7 @@ export const cancelSale = async (saleId, userId) => {
     });
 
     //2. 교환 대기 중이었던 cardCopy의 상태를 변경
-    const exPro = await exchangeProposalRepository.getExchangeProposalBySaleId(
+    const exPro = await exchangeProposalRepository.getExchangeProposal(
       saleId,
       tx
     );

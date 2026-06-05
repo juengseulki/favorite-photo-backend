@@ -1,6 +1,6 @@
 import prisma from '../configs/prisma';
 
-export const getExchangeProposalBySaleId = async (saleId, tx) => {
+export const getExchangeProposal = async (saleId, tx) => {
   const dbClient = tx || prisma;
   return await dbClient.exchangeProposal.findMany({
     where: {
@@ -26,7 +26,7 @@ export const setProposalsStatus = async (ids, prevStatus, newStatus, tx) => {
 };
 
 const exchangeProposalRepository = {
-  getExchangeProposalBySaleId,
+  getExchangeProposal,
   setStatus,
   setProposalsStatus,
 };
