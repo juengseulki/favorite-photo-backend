@@ -4,6 +4,8 @@ import cookieParser from 'cookie-parser';
 import passport from './configs/passport.js';
 import router from './routes/index.js';
 import errorHandler from './middlewares/errorHandler.js';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './docs/swagger.js';
 
 const app = express();
 
@@ -28,6 +30,7 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Favorite Photo Backend API' });
