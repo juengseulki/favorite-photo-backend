@@ -13,7 +13,7 @@ export const createSale = async ({
   userId,
 }) => {
   try {
-    //0. sale 생성
+    //1. Sale 생성
     const sale = await saleRepositioy.createSale({
       userId,
       photoCardId,
@@ -24,6 +24,7 @@ export const createSale = async ({
     });
     const saleId = sale.id;
 
+    //2. SaleItems와 CopyCards생성
     const { saleItems, cardCopies } = await createSaleItemsAndCards(
       photoCardId,
       quantity,
@@ -42,7 +43,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   const { quantity, price, exchangeGrade, exchangeGenre, exchangeDescription } =
     data;
 
-  //실제로 들어온 값만 업데이트 대상.
+  //1. 실제로 들어온 값만 보내서 업데이트.
   const modifyData = {};
   if (price) modifyData.price = price;
   if (exchangeGrade) modifyData.exchangeGrade = exchangeGrade;
@@ -51,49 +52,51 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   if (Object.keys(modifyData).length > 0)
     await saleRepositioy.modifySale(saleId, modifyData);
 
-  //quantity의 경우에는, 변경이 되었을 시, SaleItem의 변경이 필요해짐.
-  //기존 quantity 정보 가져오기
+  //2. quantity 업데이트 처리
+  //   따로 처리하는 이유는, quantity는 Sale의 데이터엔 영향을 끼치지 않고, 연결된 SaleItem의 수에 영향을 끼치기 때문.
+  //2-1. 기존 quantity 정보 (개수) 가져오기
   if (quantity) {
-    const prevQuantity =
+    const prevQuantity = //saleItems의 개수를 센다.
       await saleItemRepository.countActiveSaleItemsForSale(saleId);
-
+    //2-2. quantity에 변경이 일어났을 경우 처리 (변경이 없다면 아무것도 하지않음)
     if (quantity !== prevQuantity) {
-      //원래 기존의 카드를 모두 OWNED처리 후, 새로운 SaleItem을만들으려 했으나, 이 방식은 이전에 사용됐던 카드가 재 사용될 경우, 한 카드가 두 SaleItem에 등록되면서, 실제로 판매 중인 카드의 수량을 셀 때, 한 카드가 두번 세어지는 문제상황이 발생함.
+      //원래 기존의 카드를 모두 OWNED처리 후, 새로운 SaleItem을만들으려 했으나,
+      // 이 방식은 이전에 사용됐던 카드가 재 사용될 경우, 한 카드가 두 SaleItem에 등록되면서,
+      // 실제로 판매 중인 카드의 수량을 셀 때, 한 카드가 두번 세어지는 문제상황이 발생함.
       //카드의 늘어난/줄어든 수량만큼만 처리하도록 수정함.
 
-      //카드 수량이 늘어난 경우
+      //2-3. 카드 수량이 늘어난 경우
+
       if (quantity > prevQuantity) {
-        const addCount = quantity - prevQuantity;
-        //이전에 SaleItem에 포함된 적이 있는 카드를 우선적으로 ON_SALE로 바꾼 뒤, 나머지 개수만 새로 추가한다.
-        //SaleItem에 포함된 적 있던 카드를 OWNED-> ON_SALE로
-        const usedSaleItems =
-          await saleItemRepository.getSaleItemsForSaleOwned(saleId);
+        //SaleItem에 포함된 적이 있던 카드를 우선적으로 ON_SALE로 변경
+        //Sale에 연결된 SaleItems중, cardCopy가 UserId를 가지고 OWNED인 것
+        //ㄴ(한 유저의)한 cardCopy로 여러 SaleItem이 생기는 것을 방지하기 위함.
+        const usedSaleItems = await saleItemRepository.getSaleItems({
+          saleId,
+          status: 'OWNED',
+          userId,
+        });
         const usedCopyCardsId = usedSaleItems.map((item) => item.cardCopyId);
 
-        //개수만큼 cardCopyId의 상태를 ON_SALE로 바꾸고, 남은 개수는 saleItem을 새로 추가하기.
+        const addCount = quantity - prevQuantity;
+        let requiredCopyCardsId = [...usedCopyCardsId];
         let remainedCount = 0;
-        if (addCount === usedCopyCardsId.length)
-          await cardCopyRepository.switchCardsStatus({
-            userId,
-            cardIds: usedCopyCardsId,
-            newStatus: 'ON_SALE',
-          });
-        else if (addCount > usedCopyCardsId.length) {
-          await cardCopyRepository.switchCardsStatus({
-            userId,
-            cardIds: usedCopyCardsId,
-            newStatus: 'ON_SALE',
-          });
+        if (addCount < usedCopyCardsId.length) {
+          //필요한 개수만큼만, id배열을 자름.
+          requiredCopyCardsId = usedCopyCardsId.slice(0, addCount);
+        } else if (addCount > usedCopyCardsId.length) {
+          //남은 개수를 저장
           remainedCount = addCount - usedCopyCardsId.length;
-        } else if (addCount < usedCopyCardsId.length) {
-          const slicedCopyCardsId = usedCopyCardsId.slice(0, addCount);
-          await cardCopyRepository.switchCardsStatus({
-            userId,
-            cardIds: slicedCopyCardsId,
-            newStatus: 'ON_SALE',
-          });
         }
-        //개수만큼 새로운 카드 추가 -
+        //cardCopy의 상태를 ON_SALE로 바꾸기.
+        await cardCopyRepository.switchCardsStatus({
+          userId,
+          cardIds: requiredCopyCardsId,
+          prevStatus: 'OWNED',
+          newStatus: 'ON_SALE',
+        });
+
+        //남은 개수만큼 새로운 카드 추가 -
         if (remainedCount > 0) {
           await createSaleItemsAndCards(
             photoCardId,
@@ -104,15 +107,16 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
         }
       }
 
-      //카드 수량이 줄어든 경우
+      //2-4. 카드 수량이 줄어든 경우
       if (quantity < prevQuantity) {
+        //줄어든 개수만큼, cardCopy가 ON_SALE상태인 saleItems을 꺼내서, 연결된 cardCopy의 상태를 OWNED로 변경.
         const subCount = prevQuantity - quantity;
-        const saleItems = await saleItemRepository.getSaleItemsBySaleId(
+        const saleItems = await saleItemRepository.getSaleItems({
           saleId,
-          subCount
-        );
+          quantity: subCount,
+        });
         const cardCopyIds = saleItems.map((item) => item.cardCopyId);
-        const cards = await cardCopyRepository.switchCardsStatus({
+        await cardCopyRepository.switchCardsStatus({
           userId,
           cardIds: cardCopyIds,
           prevStatus: 'ON_SALE',
@@ -144,7 +148,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
 
 export const cancelSale = async (saleId, userId) => {
   //1. Sale에 연결된 cardCopy의 상태는 ON_SALE -> OWNED로 변경
-  const saleItems = await saleItemRepository.getActiveSaleItemsBySaleId(saleId);
+  const saleItems = await saleItemRepository.getSaleItems(saleId);
   const cardCopyIds = saleItems.map((item) => item.cardCopyId);
   await cardCopyRepository.switchCardsStatus({
     userId,
@@ -186,7 +190,8 @@ const createSaleItemsAndCards = async (
   const availableCards = await cardCopyRepository.getCardCopys(
     quantity,
     photoCardId,
-    userId
+    userId,
+    'OWNED'
   );
   const availableCardsIds = availableCards.map((card) => card.id);
 

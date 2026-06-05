@@ -20,6 +20,24 @@ export const getInactiveSaleItemsForSale = async (saleId) => {
   });
 };
 
+export const getSaleItems = async ({
+  saleId,
+  quantity = undefined,
+  status,
+  userId,
+}) => {
+  return await prisma.saleItem.findMany({
+    where: {
+      saleId: saleId,
+      cardCopy: {
+        status: status,
+        ownerId: userId,
+      },
+    },
+    take: quantity,
+  });
+};
+
 export const countActiveSaleItemsForSale = async (saleId) => {
   return await prisma.saleItem.count({
     where: {
@@ -31,27 +49,12 @@ export const countActiveSaleItemsForSale = async (saleId) => {
   });
 };
 
-export const getActiveSaleItemsBySaleId = async (
-  saleId,
-  quantity = undefined
-) => {
-  return await prisma.saleItem.findMany({
-    where: {
-      saleId: saleId,
-      cardCopy: {
-        status: 'ON_SALE',
-      },
-    },
-    take: quantity,
-  });
-};
-
 //TODO: SaleItem의 status를 판매 중 -> 판매 완료로 바꾸는 함수 필요. (나중에 SaleItem에 status항목 추가 된 후에 구현)
 
 const saleItemRepository = {
   createSaleItems,
   countActiveSaleItemsForSale,
-  getActiveSaleItemsBySaleId,
+  getSaleItems,
   getInactiveSaleItemsForSale,
 };
 export default saleItemRepository;
