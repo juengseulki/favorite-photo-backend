@@ -9,17 +9,6 @@ export const createSaleItems = async (datas) => {
 //update는 status 변경 외엔 해야 할 사항 없음.
 //delete도 일어나지 않음. (그저 sale이 종료가 되고, cardcopy는 OWNED상태로 바뀌는 것 뿐.)
 
-export const getInactiveSaleItemsForSale = async (saleId) => {
-  return await prisma.saleItem.findMany({
-    where: {
-      saleId: saleId,
-      cardCopy: {
-        status: 'OWNED',
-      },
-    },
-  });
-};
-
 export const getSaleItems = async ({
   saleId,
   quantity = undefined,
@@ -55,6 +44,5 @@ const saleItemRepository = {
   createSaleItems,
   countActiveSaleItemsForSale,
   getSaleItems,
-  getInactiveSaleItemsForSale,
 };
 export default saleItemRepository;

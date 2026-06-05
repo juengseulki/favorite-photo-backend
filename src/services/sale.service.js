@@ -60,13 +60,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
       await saleItemRepository.countActiveSaleItemsForSale(saleId);
     //2-2. quantity에 변경이 일어났을 경우 처리 (변경이 없다면 아무것도 하지않음)
     if (quantity !== prevQuantity) {
-      //원래 기존의 카드를 모두 OWNED처리 후, 새로운 SaleItem을만들으려 했으나,
-      // 이 방식은 이전에 사용됐던 카드가 재 사용될 경우, 한 카드가 두 SaleItem에 등록되면서,
-      // 실제로 판매 중인 카드의 수량을 셀 때, 한 카드가 두번 세어지는 문제상황이 발생함.
-      //카드의 늘어난/줄어든 수량만큼만 처리하도록 수정함.
-
       //2-3. 카드 수량이 늘어난 경우
-
       if (quantity > prevQuantity) {
         //SaleItem에 포함된 적이 있던 카드를 우선적으로 ON_SALE로 변경
         //Sale에 연결된 SaleItems중, cardCopy가 UserId를 가지고 OWNED인 것

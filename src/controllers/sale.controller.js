@@ -6,6 +6,13 @@ import AppError from '../utils/AppError.js';
 export const createSale = async (req, res, next) => {
   //새로운 sale 데이터 검증
   try {
+    //TODO: 그런데, 이런 로그인 검증은, 검증이 필요한 API들을 싸그리 모아서 한 번에 처리할 수 있지 않나?
+    const userId = req.user.id;
+    if (!userId) {
+      //TODO: 에러 상수 넣기
+      throw new AppError(401, 'UNAUTHORIZED', '로그인이 필요합니다.');
+    }
+
     const {
       photoCardId,
       price,
@@ -14,19 +21,33 @@ export const createSale = async (req, res, next) => {
       exchangeGenre,
       exchangeDescription,
     } = req.body;
-    //validation_error 검증
+
+    //필수 값 누락 검증
     if (!photoCardId || !price || !quantity) {
+      //TODO: 에러 상수 넣기
       throw new AppError(
         400,
         'VALIDATION_ERROR',
         'photoCardId, price, quantity, exchangeInfo는 필수 정보입니다.'
       );
     }
-    const userId = req.user.id;
-    if (!userId) {
-      throw new AppError();
-      //TODO: 내가 여기에서 뭔 에러를 던져야 하지? 유저 id가 없는 것 -> 로그인 되지 않은 거라는 건데,
-    }
+
+    //값의 논리적 오류 검증
+    if (price <= 0)
+      //TODO: 에러 상수 넣기
+      throw new AppError(
+        400,
+        'VALIDATION_ERROR',
+        '가격은 1원 이상이어야 합니다.'
+      );
+    if (quantity <= 0)
+      //TODO: 에러 상수 넣기
+      throw new AppError(
+        400,
+        'VALIDATION_ERROR',
+        '수량은 1개 이상이어야 합니다.'
+      );
+
     //1. Sale 만들기
     const response = await saleService.createSale({
       photoCardId,
