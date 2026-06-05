@@ -1,4 +1,9 @@
-import { createProposal, listProposals } from '../services/exchange.service.js';
+import {
+  acceptProposal,
+  createProposal,
+  listProposals,
+  rejectProposal,
+} from '../services/exchange.service.js';
 
 // 인증 미들웨어가 세팅한 사용자 정보를 컨트롤러 공통으로 꺼낸다.
 function getCurrentUserId(req) {
@@ -51,6 +56,52 @@ export async function getExchangeProposals(req, res) {
       status: status ? String(status) : undefined,
       page: Number.isNaN(parsedPage) ? 1 : parsedPage,
       limit: Number.isNaN(parsedLimit) ? 10 : Math.min(parsedLimit, 50),
+    });
+
+    return res.status(200).json({ data, message: 'success' });
+  } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({
+      error: {
+        code: error.code || 'INTERNAL_SERVER_ERROR',
+        message: error.message || '서버 오류',
+      },
+    });
+  }
+}
+
+// 받은 교환 요청을 승인한다.
+export async function acceptExchangeProposal(req, res) {
+  try {
+    const userId = getCurrentUserId(req);
+    const proposalId = Number(req.params.id);
+
+    const data = await acceptProposal({
+      userId,
+      proposalId,
+    });
+
+    return res.status(200).json({ data, message: 'success' });
+  } catch (error) {
+    const status = error.status || 500;
+    return res.status(status).json({
+      error: {
+        code: error.code || 'INTERNAL_SERVER_ERROR',
+        message: error.message || '서버 오류',
+      },
+    });
+  }
+}
+
+// 받은 교환 요청을 거절한다.
+export async function rejectExchangeProposal(req, res) {
+  try {
+    const userId = getCurrentUserId(req);
+    const proposalId = Number(req.params.id);
+
+    const data = await rejectProposal({
+      userId,
+      proposalId,
     });
 
     return res.status(200).json({ data, message: 'success' });
