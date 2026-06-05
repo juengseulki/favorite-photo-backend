@@ -1,7 +1,8 @@
 import prisma from '../configs/prisma.js';
 
-export const createSaleItems = async (datas) => {
-  return await prisma.saleItem.createMany({
+export const createSaleItems = async (datas, tx) => {
+  const dbClient = tx || prisma;
+  return await dbClient.saleItem.createMany({
     data: datas,
   });
 };
@@ -11,24 +12,27 @@ export const createSaleItems = async (datas) => {
 
 export const getSaleItems = async ({
   saleId,
-  quantity = undefined,
+  quantity,
   status,
   userId,
+  tx,
 }) => {
-  return await prisma.saleItem.findMany({
+  const dbClient = tx || prisma;
+  return await dbClient.saleItem.findMany({
     where: {
       saleId: saleId,
       cardCopy: {
-        status: status,
-        ownerId: userId,
+        status: status || undefined,
+        ownerId: userId || undefined,
       },
     },
-    take: quantity,
+    take: quantity ?? undefined,
   });
 };
 
-export const countActiveSaleItemsForSale = async (saleId) => {
-  return await prisma.saleItem.count({
+export const countActiveSaleItemsForSale = async (saleId, tx) => {
+  const dbClient = tx || prisma;
+  return await dbClient.saleItem.count({
     where: {
       saleId: saleId,
       cardCopy: {

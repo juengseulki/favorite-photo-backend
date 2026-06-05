@@ -7,12 +7,14 @@ export const createSale = async ({
   exchangeGrade,
   exchangeGenre,
   exchangeDescription,
+  tx,
 }) => {
-  return await prisma.sale.create({
+  const dbClient = tx || prisma;
+  return await dbClient.sale.create({
     data: {
       sellerId: userId,
       photoCardId: Number(photoCardId),
-      price,
+      price: Number(price),
       exchangeGrade,
       exchangeGenre,
       exchangeDescription,
@@ -20,38 +22,42 @@ export const createSale = async ({
   });
 };
 
-export const modifySale = async (saleId, data) => {
-  return await prisma.sale.update({
+export const modifySale = async (saleId, data, tx) => {
+  const dbClient = tx || prisma;
+  return await dbClient.sale.update({
     where: { id: saleId },
     data: data,
   });
 };
 
-export const cancelSale = async (saleId) => {
-  return await prisma.sale.update({
+export const cancelSale = async (saleId, tx) => {
+  const dbClient = tx || prisma;
+  return await dbClient.sale.update({
     where: { id: saleId },
     data: { status: 'CANCELED' },
   });
 };
 
-export const getSale = async (saleId) => {
-  return await prisma.sale.findUnique({
+export const getSale = async (saleId, tx) => {
+  const dbClient = tx || prisma;
+  return await dbClient.sale.findUnique({
     where: { id: saleId },
   });
 };
 
-export const setStatus = async (saleId, status) => {
-  return await prisma.sale.update({
+export const setStatus = async (saleId, status, tx) => {
+  const dbClient = tx || prisma;
+  return await dbClient.sale.update({
     where: { id: saleId },
     data: { status: status },
   });
 };
 
-const saleRepositioy = {
+const saleRepository = {
   createSale,
   modifySale,
   cancelSale,
   setStatus,
   getSale,
 };
-export default saleRepositioy;
+export default saleRepository;
