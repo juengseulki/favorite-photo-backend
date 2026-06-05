@@ -15,6 +15,23 @@ export const createSale = async ({
 }) => {
   try {
     return await prisma.$transaction(async (tx) => {
+      //요청한 수량 만큼, 카드를 보유중인지 확인
+      const avilableCardCopies = await cardCopyRepository.getCardCopys({
+        quantity,
+        photoCardId,
+        userId,
+        status: 'OWNED',
+        tx,
+      });
+      if (quantity > avilableCardCopies.length) {
+        //TODO: 에러 상수 넣기
+        throw new AppError(
+          400,
+          'CARD_NOT_ENOUGH',
+          '요청 수량 대비 카드가 부족합니다.'
+        );
+      }
+
       //1. Sale 생성
       const sale = await saleRepository.createSale({
         userId,
@@ -104,7 +121,22 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
             tx,
           });
 
-          //남은 개수만큼 새로운 카드 추가 -
+          //남은 개수만큼 새로운 카드 추가
+          const remainCards = await cardCopyRepository.getCardCopys({
+            quantity: remainedCount,
+            photoCardId,
+            userId,
+            status: 'OWNED',
+            tx,
+          });
+          if (remainedCount > remainCards.length) {
+            //TODO: 에러 상수 넣기
+            throw new AppError(
+              400,
+              'CARD_NOT_ENOUGH',
+              '요청 수량 대비 카드가 부족합니다.'
+            );
+          }
           if (remainedCount > 0) {
             await createSaleItemsAndCards(
               photoCardId,
