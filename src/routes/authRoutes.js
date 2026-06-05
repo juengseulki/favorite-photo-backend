@@ -14,6 +14,21 @@ router.get('/me', authenticate, authController.getMe);
 // OAuth 공통 닉네임 설정 완료
 router.post('/oauth/complete', authController.oauthComplete);
 
+// passport 인증 실패 시 프론트 로그인 페이지로 리다이렉트하는 공통 핸들러
+const oauthAuthenticate = (strategy) => (req, res, next) => {
+  const CLIENT_URL = (
+    process.env.CLIENT_URL ?? 'http://localhost:3000'
+  ).replace(/\/$/, '');
+
+  passport.authenticate(strategy, { session: false }, (err, user) => {
+    if (err || !user) {
+      return res.redirect(`${CLIENT_URL}/login?error=oauth_failed`);
+    }
+    req.user = user;
+    next();
+  })(req, res, next);
+};
+
 // Google OAuth
 router.get(
   '/google',
