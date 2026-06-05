@@ -1,6 +1,27 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
+//공통 함수 (알림 생성)
+export const createNotification = async ({
+  userId,
+  type,
+  content,
+  linkUrl,
+  targetId,
+  targetType,
+}) => {
+  return await prisma.notification.create({
+    data: {
+      userId,
+      type,
+      content,
+      linkUrl,
+      targetId,
+      targetType,
+    },
+  });
+};
+
 export const getNotificationsService = async (userId) => {
   const notifications = await prisma.notification.findMany({
     where: {

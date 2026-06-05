@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { createNotification } from './notification.service.js';
 
 // 잘못된 요청값에 대한 400 에러
 function badRequest(message) {
@@ -56,7 +57,15 @@ export async function createProposal({
 
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
-    include: { saleItems: true },
+    include: {
+      saleItems: true,
+      photoCard: {
+        select: {
+          name: true,
+          grade: true,
+        },
+      },
+    },
   });
   if (!sale) throw notFound('판매글을 찾을 수 없습니다.');
   if (sale.status !== 'ON_SALE')
@@ -83,6 +92,13 @@ export async function createProposal({
 
   const offeredCopy = await prisma.cardCopy.findUnique({
     where: { id: offeredCardCopyId },
+    include: {
+      owner: {
+        select: {
+          nickname: true,
+        },
+      },
+    },
   });
   if (!offeredCopy) throw notFound('제안 카드 복사본을 찾을 수 없습니다.');
   if (offeredCopy.ownerId !== userId)
@@ -100,7 +116,7 @@ export async function createProposal({
   });
   if (duplicated) throw conflict('이미 동일한 교환 제안이 대기중입니다.');
 
-  return prisma.exchangeProposal.create({
+  const proposal = await prisma.exchangeProposal.create({
     data: {
       saleId,
       proposerId: userId,
@@ -108,6 +124,17 @@ export async function createProposal({
       // 스키마에 description 필드가 없으므로 저장하지 않음
     },
   });
+
+  await createNotification({
+    userId: sale.sellerId,
+    type: 'EXCHANGE_REQUEST',
+    content: `${offeredCopy.owner.nickname}님이 [${sale.photoCard.grade} | ${sale.photoCard.name}]의 포토카드 교환을 제안했습니다.`,
+    linkUrl: `/exchange/${proposal.id}`,
+    targetId: proposal.id,
+    targetType: 'EXCHANGE',
+  });
+
+  return proposal;
 }
 
 // 보낸 요청/받은 요청 목록을 조건에 맞게 조회
