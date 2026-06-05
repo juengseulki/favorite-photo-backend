@@ -1,26 +1,119 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
+const parsePriceCursor = (cursor) => {
+  if (!cursor) return null;
+
+  const [price, id] = cursor.split('_').map(Number);
+
+  if (!Number.isInteger(price) || !Number.isInteger(id)) {
+    return null;
+  }
+
+  return { price, id };
+};
+
 // 마켓 판매 카드 목록 조회
-export const getMarketCardsService = async ({ cursor, limit }) => {
+export const getMarketCardsService = async ({
+  cursor,
+  limit,
+  keyword,
+  grade,
+  genre,
+  sort,
+}) => {
   const where = {
     status: {
       in: ['ON_SALE', 'SOLD_OUT'],
     },
+    photoCard: {
+      ...(keyword && {
+        name: {
+          contains: keyword,
+          mode: 'insensitive',
+        },
+      }),
+      ...(grade && { grade }),
+      ...(genre && { genre }),
+    },
   };
 
+  let orderBy;
+
+  switch (sort) {
+    case 'priceAsc':
+      orderBy = [{ price: 'asc' }, { id: 'desc' }];
+      break;
+
+    case 'priceDesc':
+      orderBy = [{ price: 'desc' }, { id: 'desc' }];
+      break;
+
+    case 'latest':
+    default:
+      orderBy = [{ id: 'desc' }];
+      break;
+  }
+
+  let cursorWhere = {};
+
+  if (cursor) {
+    if (sort === 'priceAsc') {
+      const parsedCursor = parsePriceCursor(cursor);
+
+      if (parsedCursor) {
+        cursorWhere = {
+          OR: [
+            {
+              price: {
+                gt: parsedCursor.price,
+              },
+            },
+            {
+              price: parsedCursor.price,
+              id: {
+                lt: parsedCursor.id,
+              },
+            },
+          ],
+        };
+      }
+    } else if (sort === 'priceDesc') {
+      const parsedCursor = parsePriceCursor(cursor);
+
+      if (parsedCursor) {
+        cursorWhere = {
+          OR: [
+            {
+              price: {
+                lt: parsedCursor.price,
+              },
+            },
+            {
+              price: parsedCursor.price,
+              id: {
+                lt: parsedCursor.id,
+              },
+            },
+          ],
+        };
+      }
+    } else {
+      cursorWhere = {
+        id: {
+          lt: Number(cursor),
+        },
+      };
+    }
+  }
+
   const sales = await prisma.sale.findMany({
-    where,
-    ...(cursor && {
-      cursor: {
-        id: cursor,
-      },
-      skip: 1,
-    }),
-    take: limit + 1,
-    orderBy: {
-      id: 'desc',
+    where: {
+      ...where,
+      ...cursorWhere,
     },
+    take: limit + 1,
+    orderBy,
     select: {
       id: true,
       price: true,
@@ -59,8 +152,12 @@ export const getMarketCardsService = async ({ cursor, limit }) => {
 
   const hasNextPage = sales.length > limit;
   const currentSales = hasNextPage ? sales.slice(0, limit) : sales;
+  const lastSale = currentSales[currentSales.length - 1];
+
   const nextCursor = hasNextPage
-    ? currentSales[currentSales.length - 1].id
+    ? sort === 'priceAsc' || sort === 'priceDesc'
+      ? `${lastSale.price}_${lastSale.id}`
+      : String(lastSale.id)
     : null;
 
   const cards = currentSales.map((sale) => {

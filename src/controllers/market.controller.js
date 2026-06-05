@@ -18,7 +18,7 @@ export const getMarketCards = async (req, res, next) => {
       keyword,
       grade,
       genre,
-      cursor: cursor ? Number(cursor) : undefined,
+      cursor,
       limit: Number(limit),
       sort,
     });
