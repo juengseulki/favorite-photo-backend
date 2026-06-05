@@ -30,6 +30,7 @@ export const getSaleItems = async ({
   });
 };
 
+//TODO: 추후 사용성을 고려하여, status를 인자로 받도록 수정 필요
 export const countActiveSaleItemsForSale = async (saleId, tx) => {
   const dbClient = tx || prisma;
   return await dbClient.saleItem.count({
