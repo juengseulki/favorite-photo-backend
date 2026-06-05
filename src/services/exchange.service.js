@@ -1,4 +1,5 @@
 import { prisma } from '../lib/prisma.js';
+import { createNotification } from './notification.service.js';
 
 // 잘못된 요청값에 대한 400 에러
 function badRequest(message) {
@@ -56,7 +57,15 @@ export async function createProposal({
 
   const sale = await prisma.sale.findUnique({
     where: { id: saleId },
-    include: { saleItems: true },
+    include: {
+      saleItems: true,
+      photoCard: {
+        select: {
+          name: true,
+          grade: true,
+        },
+      },
+    },
   });
   if (!sale) throw notFound('판매글을 찾을 수 없습니다.');
   if (sale.status !== 'ON_SALE')
@@ -83,6 +92,13 @@ export async function createProposal({
 
   const offeredCopy = await prisma.cardCopy.findUnique({
     where: { id: offeredCardCopyId },
+    include: {
+      owner: {
+        select: {
+          nickname: true,
+        },
+      },
+    },
   });
   if (!offeredCopy) throw notFound('제안 카드 복사본을 찾을 수 없습니다.');
   if (offeredCopy.ownerId !== userId)
@@ -100,7 +116,7 @@ export async function createProposal({
   });
   if (duplicated) throw conflict('이미 동일한 교환 제안이 대기중입니다.');
 
-  return prisma.exchangeProposal.create({
+  const proposal = await prisma.exchangeProposal.create({
     data: {
       saleId,
       proposerId: userId,
@@ -108,6 +124,17 @@ export async function createProposal({
       // 스키마에 description 필드가 없으므로 저장하지 않음
     },
   });
+
+  await createNotification({
+    userId: sale.sellerId,
+    type: 'EXCHANGE_REQUEST',
+    content: `${offeredCopy.owner.nickname}님이 [${sale.photoCard.grade} | ${sale.photoCard.name}]의 포토카드 교환을 제안했습니다.`,
+    linkUrl: `/exchange/${proposal.id}`,
+    targetId: proposal.id,
+    targetType: 'EXCHANGE',
+  });
+
+  return proposal;
 }
 
 // 보낸 요청/받은 요청 목록을 조건에 맞게 조회
@@ -202,4 +229,159 @@ export async function listProposals({
       hasNextPage: page < totalPages,
     },
   };
+}
+
+// 받은 교환 요청을 거절한다.
+export async function rejectProposal({ userId, proposalId }) {
+  if (!proposalId || Number.isNaN(proposalId)) {
+    throw badRequest('proposalId가 올바르지 않습니다.');
+  }
+
+  const proposal = await prisma.exchangeProposal.findUnique({
+    where: { id: proposalId },
+    include: {
+      sale: true,
+    },
+  });
+
+  if (!proposal) {
+    throw notFound('교환 제안을 찾을 수 없습니다.');
+  }
+  if (proposal.sale.sellerId !== userId) {
+    throw forbidden('받은 교환 요청만 거절할 수 있습니다.');
+  }
+  if (proposal.status !== 'PENDING') {
+    throw conflict(
+      '대기중인 교환 제안만 거절할 수 있습니다.',
+      'VALIDATION_ERROR'
+    );
+  }
+
+  return prisma.exchangeProposal.update({
+    where: { id: proposalId },
+    data: {
+      status: 'REJECTED',
+    },
+  });
+}
+
+// 받은 교환 요청을 승인하고 카드 소유권을 교환한다.
+export async function acceptProposal({ userId, proposalId }) {
+  if (!proposalId || Number.isNaN(proposalId)) {
+    throw badRequest('proposalId가 올바르지 않습니다.');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const proposal = await tx.exchangeProposal.findUnique({
+      where: { id: proposalId },
+      include: {
+        sale: {
+          include: {
+            saleItems: true,
+          },
+        },
+        offeredCardCopy: true,
+      },
+    });
+
+    if (!proposal) {
+      throw notFound('교환 제안을 찾을 수 없습니다.');
+    }
+    if (proposal.sale.sellerId !== userId) {
+      throw forbidden('받은 교환 요청만 승인할 수 있습니다.');
+    }
+    if (proposal.status !== 'PENDING') {
+      throw conflict(
+        '대기중인 교환 제안만 승인할 수 있습니다.',
+        'VALIDATION_ERROR'
+      );
+    }
+    if (proposal.sale.saleItems.length === 0) {
+      throw conflict(
+        '판매글에 연결된 판매 카드가 없습니다.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const saleCardCopy = await tx.cardCopy.findUnique({
+      where: { id: proposal.sale.saleItems[0].cardCopyId },
+    });
+    if (!saleCardCopy) {
+      throw notFound('판매 카드 복사본을 찾을 수 없습니다.');
+    }
+    if (saleCardCopy.ownerId !== userId) {
+      throw conflict(
+        '판매 카드의 소유권이 이미 변경되었습니다.',
+        'VALIDATION_ERROR'
+      );
+    }
+    if (saleCardCopy.status !== 'ON_SALE') {
+      throw conflict(
+        '현재 판매 카드 상태에서는 교환을 승인할 수 없습니다.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    const offeredCardCopy = await tx.cardCopy.findUnique({
+      where: { id: proposal.offeredCardCopyId },
+    });
+    if (!offeredCardCopy) {
+      throw notFound('제안 카드 복사본을 찾을 수 없습니다.');
+    }
+    if (offeredCardCopy.ownerId !== proposal.proposerId) {
+      throw conflict(
+        '제안 카드의 소유권이 이미 변경되었습니다.',
+        'VALIDATION_ERROR'
+      );
+    }
+    if (offeredCardCopy.status !== 'OWNED') {
+      throw conflict(
+        '현재 제안 카드 상태에서는 교환을 승인할 수 없습니다.',
+        'VALIDATION_ERROR'
+      );
+    }
+
+    await tx.cardCopy.update({
+      where: { id: saleCardCopy.id },
+      data: {
+        ownerId: proposal.proposerId,
+        status: 'OWNED',
+      },
+    });
+
+    await tx.cardCopy.update({
+      where: { id: offeredCardCopy.id },
+      data: {
+        ownerId: userId,
+        status: 'OWNED',
+      },
+    });
+
+    const acceptedProposal = await tx.exchangeProposal.update({
+      where: { id: proposalId },
+      data: {
+        status: 'ACCEPTED',
+      },
+    });
+
+    await tx.exchangeProposal.updateMany({
+      where: {
+        saleId: proposal.saleId,
+        status: 'PENDING',
+        id: { not: proposalId },
+      },
+      data: {
+        status: 'CANCELED',
+      },
+    });
+
+    await tx.sale.update({
+      where: { id: proposal.saleId },
+      data: {
+        status: 'SOLD_OUT',
+      },
+    });
+
+    return acceptedProposal;
+  });
 }
