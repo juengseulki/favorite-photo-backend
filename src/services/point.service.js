@@ -91,12 +91,18 @@ export const openRandomBoxService = async (userId, selectedBox) => {
     const amount =
       Math.floor(Math.random() * (MAX_POINT - MIN_POINT + 1)) + MIN_POINT;
 
-    const point = await tx.point.update({
-      where: { userId },
-      data: {
+    const point = await tx.point.upsert({
+      where: {
+        userId,
+      },
+      update: {
         balance: {
           increment: amount,
         },
+      },
+      create: {
+        userId,
+        balance: amount,
       },
     });
 
