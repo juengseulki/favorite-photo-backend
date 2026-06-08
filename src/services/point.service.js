@@ -2,19 +2,33 @@ import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ERROR_MESSAGES } from '../constants/errorMessages.js';
 
-export const getPointsService = async (userId) => {
-  const points = await prisma.pointHistory.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+export const getPointsService = async ({ userId, page, limit }) => {
+  const skip = (page - 1) * limit;
+
+  const [points, totalCount] = await prisma.$transaction([
+    prisma.pointHistory.findMany({
+      where: {
+        userId,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    }),
+    prisma.pointHistory.count({
+      where: {
+        userId,
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(totalCount / limit);
+  const hasNextPage = page < totalPages;
 
   return {
     items: points,
-    meta: { totalCount: points.length },
+    meta: { totalCount, page, limit, totalPages, hasNextPage },
   };
 };
 
