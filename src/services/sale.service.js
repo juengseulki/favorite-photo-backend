@@ -206,19 +206,7 @@ export const cancelSale = async (saleId, userId) => {
       tx,
     });
 
-    //2. 교환 대기 중이었던 cardCopy의 상태를 변경
-    const exPro = await exchangeProposalRepository.getExchangeProposal(
-      saleId,
-      tx
-    );
-    const offeredCardIds = exPro.map((pro) => pro.offeredCardCopyId);
-    await cardCopyRepository.switchCardsStatus({
-      userId,
-      cardIds: offeredCardIds,
-      prevStatus: 'EXCHANGING',
-      newStatus: 'OWNED',
-      tx,
-    });
+    //2. 교환 대기 중이었던 cardCopy의 상태를 변경 --> 교환 정책과 달라 삭제!
 
     //3. ExchangeProposal의 상태를 변경
     const exProIds = exPro.map((pro) => pro.id);
