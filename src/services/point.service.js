@@ -60,37 +60,37 @@ export const openRandomBoxService = async (userId, selectedBox) => {
     throw new AppError(ERROR_MESSAGES.RANDOM_BOX_OPEN_FAILED, 400);
   }
 
-  const lastHistory = await prisma.randomBoxHistory.findFirst({
-    where: {
-      userId,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const now = new Date();
-
-  if (lastHistory) {
-    const nextAvailableAt = new Date(
-      lastHistory.createdAt.getTime() + 60 * 60 * 1000
-    );
-
-    const remainingSeconds = Math.max(
-      0,
-      Math.ceil((nextAvailableAt.getTime() - now.getTime()) / 1000)
-    );
-
-    if (remainingSeconds > 0) {
-      throw new AppError(ERROR_MESSAGES.RANDOM_BOX_COOLDOWN, 400);
-    }
-  }
-
-  const MIN_POINT = 100;
-  const MAX_POINT = 1000;
-
-  const amount =
-    Math.floor(Math.random() * (MAX_POINT - MIN_POINT + 1)) + MIN_POINT;
-
   const result = await prisma.$transaction(async (tx) => {
+    const lastHistory = await tx.randomBoxHistory.findFirst({
+      where: {
+        userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+
+    if (lastHistory) {
+      const nextAvailableAt = new Date(
+        lastHistory.createdAt.getTime() + 60 * 60 * 1000
+      );
+
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((nextAvailableAt.getTime() - now.getTime()) / 1000)
+      );
+
+      if (remainingSeconds > 0) {
+        throw new AppError(ERROR_MESSAGES.RANDOM_BOX_COOLDOWN, 400);
+      }
+    }
+
+    const MIN_POINT = 100;
+    const MAX_POINT = 1000;
+
+    const amount =
+      Math.floor(Math.random() * (MAX_POINT - MIN_POINT + 1)) + MIN_POINT;
+
     const point = await tx.point.update({
       where: { userId },
       data: {
