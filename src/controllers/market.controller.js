@@ -57,7 +57,7 @@ export const purchaseCards = async (req, res, next) => {
 
     const response = await purchaseCardsService({
       saleId: Number(saleId),
-      userId: Number(userId),
+      buyerId: Number(userId),
       quantity: Number(quantity),
     });
     res.status(200).json({ data: response, message: 'success' });

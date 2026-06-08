@@ -19,7 +19,7 @@ const purchaseItemRepository = {
 
   getPurchaseItem: async ({ id, tx }) => {
     const dbClient = tx || prisma;
-    return await dbClient.purchaseItem.find({
+    return await dbClient.purchaseItem.findUnique({
       where: { id },
     });
   },
@@ -41,9 +41,9 @@ const purchaseItemRepository = {
   //TODO: modify가 필요할까?
   modifyPurchaseItem: async ({ id, data, tx }) => {
     const dbClient = tx || prisma;
-    return await dbClient.purchaseItem.updte({
+    return await dbClient.purchaseItem.update({
       where: { id },
-      data: { data },
+      data: data,
     });
   },
   //TODO: delete가 필요할까?

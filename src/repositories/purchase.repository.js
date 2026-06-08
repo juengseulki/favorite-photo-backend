@@ -32,7 +32,7 @@ const purchaseRepository = {
 
   getPurchase: async ({ id, tx }) => {
     const dbClient = tx || prisma;
-    return await dbClient.purchase.find({
+    return await dbClient.purchase.findUnique({
       where: { id },
     });
   },

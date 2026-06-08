@@ -18,6 +18,14 @@ export const getCardCopys = async ({
   });
 };
 
+export const updateCardCopiesOwnerId = async ({ cardsIds, ownerId, tx }) => {
+  const dbClient = tx || prisma;
+  return await dbClient.cardCopy.updateMany({
+    where: { id: { in: cardsIds } },
+    data: { ownerId },
+  });
+};
+
 export const switchCardsStatus = async ({
   userId,
   cardIds,
