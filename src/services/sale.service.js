@@ -64,6 +64,14 @@ export const createSale = async ({
 //들어오는 정보에 대해서만 update. 들어오지 않는 정보는 현상유지.
 export const modifySale = async (saleId, photoCardId, userId, data) => {
   return await prisma.$transaction(async (tx) => {
+    const sale = await saleRepository.getSale({ saleId, tx });
+    if (sale.status !== 'ON_SALE') {
+      throw new AppError(
+        400,
+        'SALE_ALREADY_SOLD_OUT',
+        '이미 판매 완료된 상품입니다.'
+      );
+    }
     const {
       quantity,
       price,
