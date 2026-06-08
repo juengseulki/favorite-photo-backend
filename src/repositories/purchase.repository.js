@@ -14,7 +14,7 @@ const purchaseRepository = {
     });
   },
 
-  modifyPurchase: async ({ id, data }) => {
+  modifyPurchase: async ({ id, data, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.purchase.update({
       where: { id },
@@ -23,14 +23,14 @@ const purchaseRepository = {
   },
 
   //TODO: delete가 필요할까?
-  deletePurchase: async ({ id }) => {
+  deletePurchase: async ({ id, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.purchase.delete({
       where: { id },
     });
   },
 
-  getPurchase: async ({ id }) => {
+  getPurchase: async ({ id, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.purchase.find({
       where: { id },
