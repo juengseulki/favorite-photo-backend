@@ -1,6 +1,7 @@
 import { verifyAccessToken } from '../utils/jwt.js';
 import { findUserById } from '../repositories/authRepository.js';
 import AppError from '../utils/AppError.js';
+import { ERROR_MESSAGES } from '../constants/errorMessages.js';
 
 // 인증 필수 미들웨어 (Authorization: Bearer <accessToken> 헤더를 검증 후 req.user를 설정)
 export const authenticate = async (req, res, next) => {
@@ -8,7 +9,7 @@ export const authenticate = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader?.startsWith('Bearer ')) {
-      throw new AppError(401, 'NO_TOKEN', '인증 토큰이 없습니다.');
+      throw new AppError(401, 'NO_TOKEN', ERROR_MESSAGES.NO_TOKEN);
     }
 
     const token = authHeader.slice(7);
@@ -17,13 +18,13 @@ export const authenticate = async (req, res, next) => {
     try {
       payload = verifyAccessToken(token);
     } catch {
-      throw new AppError(401, 'INVALID_TOKEN', '유효하지 않은 토큰입니다.');
+      throw new AppError(401, 'INVALID_TOKEN', ERROR_MESSAGES.INVALID_TOKEN);
     }
 
     const user = await findUserById(payload.userId);
 
     if (!user) {
-      throw new AppError(401, 'USER_NOT_FOUND', '사용자를 찾을 수 없습니다.');
+      throw new AppError(401, 'USER_NOT_FOUND', ERROR_MESSAGES.USER_NOT_FOUND);
     }
 
     req.user = { id: user.id, email: user.email, nickname: user.nickname };

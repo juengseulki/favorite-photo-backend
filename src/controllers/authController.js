@@ -5,6 +5,7 @@ import {
 } from '../repositories/authRepository.js';
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
 import { hashToken } from '../utils/hash.js';
+import { SUCCESS_MESSAGES } from '../constants/successMessages.js';
 
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
@@ -24,7 +25,7 @@ export const register = async (req, res) => {
   res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
   res.status(201).json({
     data: { user, accessToken },
-    message: '회원가입이 완료되었습니다.',
+    message: SUCCESS_MESSAGES.REGISTER,
   });
 };
 
@@ -38,7 +39,7 @@ export const login = async (req, res) => {
   res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
   res.json({
     data: { user, accessToken },
-    message: '로그인되었습니다.',
+    message: SUCCESS_MESSAGES.LOGIN,
   });
 };
 
@@ -50,7 +51,7 @@ export const refresh = async (req, res) => {
   res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
   res.json({
     data: { accessToken },
-    message: '토큰이 갱신되었습니다.',
+    message: SUCCESS_MESSAGES.TOKEN_REFRESH,
   });
 };
 
@@ -61,7 +62,7 @@ export const logout = async (req, res) => {
   res.clearCookie('refreshToken');
   res.json({
     data: null,
-    message: '로그아웃되었습니다.',
+    message: SUCCESS_MESSAGES.LOGOUT,
   });
 };
 
@@ -125,7 +126,7 @@ export const oauthComplete = async (req, res) => {
 
   res.status(201).json({
     data: { user, accessToken },
-    message: '회원가입이 완료되었습니다.',
+    message: SUCCESS_MESSAGES.REGISTER,
   });
 };
 
@@ -140,6 +141,6 @@ export const getMe = async (req, res) => {
         point: user.point?.balance ?? 0,
       },
     },
-    message: '사용자 정보를 가져왔습니다.',
+    message: SUCCESS_MESSAGES.GET_ME,
   });
 };
