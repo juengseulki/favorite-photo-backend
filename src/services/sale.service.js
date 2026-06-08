@@ -192,7 +192,7 @@ export const cancelSale = async (saleId, userId) => {
       saleId,
       tx
     );
-    const offeredCardIds = exPro.map((pro) => pro.offerdCardCopyId);
+    const offeredCardIds = exPro.map((pro) => pro.offeredCardCopyId);
     await cardCopyRepository.switchCardsStatus({
       userId,
       cardIds: offeredCardIds,
