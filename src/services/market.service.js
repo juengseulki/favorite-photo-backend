@@ -282,6 +282,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       await saleRepository.setStatus(saleId, 'SOLD_OUT', tx);
     }
     //1-3. 구매자의 포인트가 충분한지 확인
+    //TODO: 추후 point repository 만들어진 후 알맞게 수정 필요. (현재는 임시로 아무거나 적어둔 것)
     const buyerPoint = await pointRepository.getPoint({ userId: buyerId });
     if (buyerPoint < totalPrice) {
       //TODO: 에러 상수 넣기
