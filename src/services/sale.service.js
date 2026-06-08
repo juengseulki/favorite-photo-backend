@@ -79,14 +79,14 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
     if (exchangeDescription)
       modifyData.exchangeDescription = exchangeDescription;
     if (Object.keys(modifyData).length > 0)
-      await saleRepository.modifySale(saleId, modifyData, tx);
+      await saleRepository.modifySale({ saleId, data: modifyData, tx });
 
     //2. quantity 업데이트 처리
     //   따로 처리하는 이유는, quantity는 Sale의 데이터엔 영향을 끼치지 않고, 연결된 SaleItem의 수에 영향을 끼치기 때문.
     //2-1. 기존 quantity 정보 (개수) 가져오기
     if (quantity) {
       const prevQuantity = //saleItems의 개수를 센다.
-        await saleItemRepository.countActiveSaleItemsForSale(saleId, tx);
+        await saleItemRepository.countActiveSaleItemsForSale({ saleId, tx });
       //2-2. quantity에 변경이 일어났을 경우 처리 (변경이 없다면 아무것도 하지않음)
       if (quantity !== prevQuantity) {
         //2-3. 카드 수량이 늘어난 경우
@@ -166,27 +166,11 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
             tx,
           });
         }
-
-        //   //1. 기존의 CardCopy를 모두 OWNED처리
-        //   // (saleId를 가진 saleItem을 찾아서, 거기에 소속된 cardCopyId를 가져와서 처리)
-        //   const saleItems = await saleItemRepository.getSaleItemsBySaleId(saleId);
-        //   const cardCopyIds = saleItems.map((item) => item.cardCopyId);
-        //   const cards = await cardCopyRepository.switchCardsStatus(
-        //     cardCopyIds,
-        //     'OWNED'
-        //   );
-
-        //   //2.  quantity만큼 SaleItem을 만들고, 그 SaleItem들과 CardCopy를 연결해주기.
-        //   const { saleItem, cardCopies } = await createSaleItemsAndCards(
-        //     photoCardId,
-        //     quantity,
-        //     userId
-        //   );
       }
     }
 
     //최종적으론 수정된 Sale만 반환. (굳이 cardCopy, saleItem 정보를 보낼 필요는 없을듯?)
-    return await saleRepository.getSale(saleId, tx);
+    return await saleRepository.getSale({ saleId, tx });
   });
 };
 
@@ -219,15 +203,15 @@ export const cancelSale = async (saleId, userId) => {
 
     //3. ExchangeProposal의 상태를 변경
     const exProIds = exPro.map((pro) => pro.id);
-    await exchangeProposalRepository.setProposalsStatus(
-      exProIds,
-      'PENDING',
-      'CANCELED',
-      tx
-    );
+    await exchangeProposalRepository.setProposalsStatus({
+      ids: exProIds,
+      prevStatus: 'PENDING',
+      newStatus: 'CANCELED',
+      tx,
+    });
 
     //3. Sale 삭제
-    await saleRepository.cancelSale(saleId, tx);
+    await saleRepository.cancelSale({ saleId, tx });
   });
 };
 
@@ -239,20 +223,23 @@ const createSaleItemsAndCards = async (
   tx
 ) => {
   //1. cardCopy 가져오기 : quantity개수만큼, 현재 OWNED상태인 cardCopy 데이터(id)를 가져온다.
-  const availableCards = await cardCopyRepository.getCardCopys(
+  const availableCards = await cardCopyRepository.getCardCopys({
     quantity,
     photoCardId,
     userId,
-    'OWNED',
-    tx
-  );
+    status: 'OWNED',
+    tx,
+  });
   const availableCardsIds = availableCards.map((card) => card.id);
 
   //2. saleItem 생성하기 : cardCopy의 데이터마다, saleItem을 생성한다.
   const saleItemsData = availableCardsIds.map((cardId) => {
     return { saleId: saleId, cardCopyId: cardId };
   });
-  const saleItems = await saleItemRepository.createSaleItems(saleItemsData, tx);
+  const saleItems = await saleItemRepository.createSaleItems({
+    datas: saleItemsData,
+    tx,
+  });
 
   //3. cardCopy 상태 변경 : 가져온 cardCopy에 대해, 상태를 ON_SALE로 변경한다.
   const onSaleCards = await cardCopyRepository.switchCardsStatus({
