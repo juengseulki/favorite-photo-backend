@@ -11,7 +11,7 @@ const exchangeProposalRepository = {
   },
   setStatus: async ({ id, prevStatus, newStatus, tx }) => {
     const dbClient = tx || prisma;
-    return await dbClient.exchangeProposal.update({
+    return await dbClient.exchangeProposal.updateMany({
       where: { id, status: prevStatus },
       data: { status: newStatus },
     });
