@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import passport from './configs/passport.js';
+import requestLogger from './middlewares/requestLogger.js';
 import router from './routes/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import swaggerUi from 'swagger-ui-express';
@@ -27,6 +28,7 @@ app.use(
   })
 );
 
+app.use(requestLogger);
 app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
