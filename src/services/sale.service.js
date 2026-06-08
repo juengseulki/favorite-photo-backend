@@ -3,6 +3,7 @@ import saleItemRepository from '../repositories/saleItem.repository.js';
 import saleRepository from '../repositories/sale.repository.js';
 import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
 import prisma from '../configs/prisma.js';
+import AppError from '../utils/AppError.js';
 
 export const createSale = async ({
   photoCardId,
@@ -176,6 +177,16 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
 
 export const cancelSale = async (saleId, userId) => {
   await prisma.$transaction(async (tx) => {
+    //Sale이 현재 ON_SALE인지 검증 (교환 완료 후에도 판매글이 종료되기에, 끝난 걸 다시 취소하는 것 방지)
+    const sale = await saleRepository.getSale({ saleId, tx });
+    if (sale.status !== 'ON_SALE') {
+      throw new AppError(
+        400,
+        'SALE_ALREADY_SOLD_OUT',
+        '이미 판매 완료된 상품입니다.'
+      );
+    }
+
     //1. Sale에 연결된 cardCopy의 상태는 ON_SALE -> OWNED로 변경
     const saleItems = await saleItemRepository.getSaleItems({ saleId, tx });
     const cardCopyIds = saleItems.map((item) => item.cardCopyId);
