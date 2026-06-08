@@ -8,7 +8,13 @@ export const getPoints = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    const result = await getPointsService(userId);
+    const { page = 1, limit = 15 } = req.query;
+
+    const result = await getPointsService({
+      userId,
+      page: Number(page),
+      limit: Number(limit),
+    });
 
     return res.status(200).json({
       data: result,

@@ -2,19 +2,33 @@ import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ERROR_MESSAGES } from '../constants/errorMessages.js';
 
-export const getPointsService = async (userId) => {
-  const points = await prisma.pointHistory.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
+export const getPointsService = async ({ userId, page, limit }) => {
+  const skip = (page - 1) * limit;
+
+  const [points, totalCount] = await prisma.$transaction([
+    prisma.pointHistory.findMany({
+      where: {
+        userId,
+      },
+      skip,
+      take: limit,
+      orderBy: {
+        createdAt: 'desc',
+      },
+    }),
+    prisma.pointHistory.count({
+      where: {
+        userId,
+      },
+    }),
+  ]);
+
+  const totalPages = Math.ceil(totalCount / limit);
+  const hasNextPage = page < totalPages;
 
   return {
     items: points,
-    meta: { totalCount: points.length },
+    meta: { totalCount, page, limit, totalPages, hasNextPage },
   };
 };
 
@@ -60,43 +74,49 @@ export const openRandomBoxService = async (userId, selectedBox) => {
     throw new AppError(ERROR_MESSAGES.RANDOM_BOX_OPEN_FAILED, 400);
   }
 
-  const lastHistory = await prisma.randomBoxHistory.findFirst({
-    where: {
-      userId,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  const now = new Date();
-
-  if (lastHistory) {
-    const nextAvailableAt = new Date(
-      lastHistory.createdAt.getTime() + 60 * 60 * 1000
-    );
-
-    const remainingSeconds = Math.max(
-      0,
-      Math.ceil((nextAvailableAt.getTime() - now.getTime()) / 1000)
-    );
-
-    if (remainingSeconds > 0) {
-      throw new AppError(ERROR_MESSAGES.RANDOM_BOX_COOLDOWN, 400);
-    }
-  }
-
-  const MIN_POINT = 100;
-  const MAX_POINT = 1000;
-
-  const amount =
-    Math.floor(Math.random() * (MAX_POINT - MIN_POINT + 1)) + MIN_POINT;
-
   const result = await prisma.$transaction(async (tx) => {
-    const point = await tx.point.update({
-      where: { userId },
-      data: {
+    const lastHistory = await tx.randomBoxHistory.findFirst({
+      where: {
+        userId,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const now = new Date();
+
+    if (lastHistory) {
+      const nextAvailableAt = new Date(
+        lastHistory.createdAt.getTime() + 60 * 60 * 1000
+      );
+
+      const remainingSeconds = Math.max(
+        0,
+        Math.ceil((nextAvailableAt.getTime() - now.getTime()) / 1000)
+      );
+
+      if (remainingSeconds > 0) {
+        throw new AppError(ERROR_MESSAGES.RANDOM_BOX_COOLDOWN, 400);
+      }
+    }
+
+    const MIN_POINT = 100;
+    const MAX_POINT = 1000;
+
+    const amount =
+      Math.floor(Math.random() * (MAX_POINT - MIN_POINT + 1)) + MIN_POINT;
+
+    const point = await tx.point.upsert({
+      where: {
+        userId,
+      },
+      update: {
         balance: {
           increment: amount,
         },
+      },
+      create: {
+        userId,
+        balance: amount,
       },
     });
 
