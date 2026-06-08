@@ -1,0 +1,56 @@
+const purchaseItemRepository = {
+  //단일생성
+  createPurchaseItem: async ({ purchaseId, saleItemId }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.purchaseItem.create({
+      data: { purchaseId, saleItemId },
+    });
+  },
+  //다수생성
+  createPurchaseItems: async ({ purchaseId, saleItemsIds }) => {
+    const dbClient = tx || prisma;
+
+    const rowsData = saleItemsIds.map((sId) => {
+      return { purchaseId, saleItemId: sId };
+    });
+
+    return await dbClient.purchaseItem.createMany({ data: rowsData });
+  },
+
+  getPurchaseItem: async ({ id }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.purchaseItem.find({
+      where: { id },
+    });
+  },
+
+  getPurchaseItemsByPurchseId: async ({ purchaseId }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.purchaseItem.findMany({
+      where: { purchaseId },
+    });
+  },
+
+  countPurchasItemsByPurchaseId: async ({ purchaseId }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.purchaseItem.count({
+      where: { purchaseId },
+    });
+  },
+
+  //TODO: modify가 필요할까?
+  modifyPurchaseItem: async ({ id, data }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.purchaseItem.updte({
+      where: { id },
+      data: { data },
+    });
+  },
+  //TODO: delete가 필요할까?
+  deletePurchaseItem: async ({ id }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.purchaseItem.delete({
+      where: { id },
+    });
+  },
+};

@@ -1,12 +1,12 @@
 import prisma from '../configs/prisma.js';
 
-export const getCardCopys = async (
+export const getCardCopys = async ({
   quantity,
   photoCardId,
   userId,
   status,
-  tx
-) => {
+  tx,
+}) => {
   const dbClient = tx || prisma;
   return await dbClient.cardCopy.findMany({
     where: {

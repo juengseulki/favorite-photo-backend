@@ -1,6 +1,7 @@
 import {
   getMarketCardsService,
   getMarketCardDetailService,
+  purchaseCardsService,
 } from '../services/market.service.js';
 
 export const getMarketCards = async (req, res, next) => {
@@ -42,6 +43,24 @@ export const getMarketCardDetail = async (req, res, next) => {
       data: result,
       message: 'success',
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+//카드 구매
+export const purchaseCards = async (req, res, next) => {
+  try {
+    const { saleId } = req.params;
+    const userId = req.user.id;
+    const { quantity } = req.body;
+
+    const response = await purchaseCardsService({
+      saleId: Number(saleId),
+      userId: Number(userId),
+      quantity: Number(quantity),
+    });
+    res.status(200).json({ data: response, message: 'success' });
   } catch (error) {
     next(error);
   }

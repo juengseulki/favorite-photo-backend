@@ -255,3 +255,8 @@ export const getMarketCardDetailService = async (saleId) => {
     createdAt: sale.createdAt,
   };
 };
+
+//카드 구매
+export const purchaseCardsService = async ({ saleId, userId, quantity }) => {
+  await prisma.$transaction(async (tx) => {});
+};
