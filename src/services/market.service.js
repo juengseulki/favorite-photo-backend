@@ -264,16 +264,28 @@ export const getMarketCardDetailService = async (saleId) => {
 //카드 구매
 export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
   return await prisma.$transaction(async (tx) => {
-    //1. 수량 체크
+    //1. 구매 조건 체크 (수량, 포인트가 충분한지)
+    //가장 먼저 체크하여, 불필요한 코드 실행을 줄인다.
     const remainedQuantity =
       await saleItemRepository.countActiveSaleItemsForSale(saleId, tx);
     //1-1. [구매 수량 > 판매 수량] 이면 에러
     if (quantity > remainedQuantity) {
-      throw new AppError();
+      //TODO: 에러 상수 넣기
+      throw new AppError(
+        400,
+        'CARD_NOT_ENOUGH',
+        '판매 가능한 수량이, 구매 수량보다 적습니다.'
+      );
     }
     //1-2. [구매 수량 = 판매 수량]이면 품절 처리
     if (quantity === remainedQuantity) {
       await saleRepository.setStatus(saleId, 'SOLD_OUT', tx);
+    }
+    //1-3. 구매자의 포인트가 충분한지 확인
+    const buyerPoint = await pointRepository.getPoint({ userId: buyerId });
+    if (buyerPoint < totalPrice) {
+      //TODO: 에러 상수 넣기
+      throw new AppError(400, 'INSUFFICIENT_POINTS', '포인트가 부족합니다.');
     }
 
     //2. 구매 기록하기
