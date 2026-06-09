@@ -53,6 +53,22 @@ const saleRepository = {
       data: { status: status },
     });
   },
+
+  isExist: async ({ saleId, tx }) => {
+    const dbClient = tx || prisma;
+    const isExist = await dbClient.sale.findUnique({
+      where: { id: saleId },
+    });
+    return isExist ? true : false;
+  },
+
+  isOnSale: async ({ saleId, tx }) => {
+    const dbClient = tx || prisma;
+    const isOnSale = await dbClient.sale.findUnique({
+      where: { id: saleId, status: 'ON_SALE' },
+    });
+    return isOnSale ? true : false;
+  },
 };
 
 export default saleRepository;

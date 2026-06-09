@@ -24,12 +24,13 @@ const saleItemRepository = {
   //delete도 일어나지 않음. (그저 sale이 종료가 되고, cardcopy는 OWNED상태로 바뀌는 것 뿐.)
 
   //TODO: 추후 사용성을 고려하여, status를 인자로 받도록 수정 필요
-  countActiveSaleItemsForSale: async ({ saleId, tx }) => {
+  countActiveSaleItemsForSale: async ({ saleId, userId, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.saleItem.count({
       where: {
         saleId: saleId,
         cardCopy: {
+          ownerId: userId,
           status: 'ON_SALE',
         },
       },
