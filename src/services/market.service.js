@@ -264,10 +264,36 @@ export const getMarketCardDetailService = async (saleId) => {
 //카드 구매
 export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
   return await prisma.$transaction(async (tx) => {
+    //판매가 존재하는지 체크
+    const isExist = saleRepository.isExist({ saleId, tx });
+    if (!isExist) {
+      //TODO: 에러 상수 넣기
+      throw new AppError(
+        400,
+        'SALE_NOT_FOUND',
+        '판매 정보를 찾을 수 없습니다.'
+      );
+    }
+    //유효한 판매(Sale)인지 체크
+    const isOnSale = saleRepository.isOnSale({ saleId, tx });
+    if (!isOnSale) {
+      throw new AppError(
+        //TODO: 에러 상수 넣기
+        400,
+        'SALE_NOT_AVAILABLE',
+        '구매할 수 없는 상품입니다.'
+      );
+    }
+
     //1. 구매 조건 체크 (수량, 포인트가 충분한지)
     //가장 먼저 체크하여, 불필요한 코드 실행을 줄인다.
+    const sale = await saleRepository.getSale({ saleId, tx });
     const remainedQuantity =
-      await saleItemRepository.countActiveSaleItemsForSale(saleId, tx);
+      await saleItemRepository.countActiveSaleItemsForSale({
+        saleId,
+        userId: sale.sellerId, //cardCopy의 보유자가 판매자가 맞는지 조건 체크 추가
+        tx,
+      });
     //1-1. [구매 수량 > 판매 수량] 이면 에러
     if (quantity > remainedQuantity) {
       //TODO: 에러 상수 넣기
@@ -279,7 +305,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     }
     //1-2. [구매 수량 = 판매 수량]이면 품절 처리
     if (quantity === remainedQuantity) {
-      await saleRepository.setStatus(saleId, 'SOLD_OUT', tx);
+      await saleRepository.setStatus({ saleId, status: 'SOLD_OUT', tx });
     }
     //1-3. 구매자의 포인트가 충분한지 확인
     //TODO: 추후 point repository 만들어진 후 알맞게 수정 필요. (현재는 임시로 아무거나 적어둔 것)
@@ -291,7 +317,6 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
 
     //2. 구매 기록하기
     //2-1. Purchase 생성
-    const sale = await saleRepository.getSale(saleId, tx);
     const price = sale.price;
     const totalPrice = quantity * price; //point 증/감 쪽에서도 사용
     const purchase = await purchaseRepository.createPurchase({
