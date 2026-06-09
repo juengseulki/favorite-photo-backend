@@ -1,4 +1,4 @@
-import prisma from '../configs/prisma.js';
+﻿import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 import purchaseRepository from '../repositories/purchase.repository.js';
 import purchaseItemRepository from '../repositories/purchaseItem.repository.js';
@@ -9,9 +9,20 @@ import cardCopyRepository from '../repositories/cardCopy.repository.js';
 const parsePriceCursor = (cursor) => {
   if (!cursor) return null;
 
-  const [price, id] = cursor.split('_').map(Number);
+  const parts = cursor.split('_');
 
-  if (!Number.isInteger(price) || !Number.isInteger(id)) {
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const [price, id] = parts.map(Number);
+
+  if (
+    !Number.isInteger(price) ||
+    !Number.isInteger(id) ||
+    price < 0 ||
+    id <= 0
+  ) {
     return null;
   }
 
@@ -63,50 +74,48 @@ export const getMarketCardsService = async ({
   let cursorWhere = {};
 
   if (cursor) {
-    if (sort === 'priceAsc') {
+    if (sort === 'priceAsc' || sort === 'priceDesc') {
       const parsedCursor = parsePriceCursor(cursor);
 
-      if (parsedCursor) {
-        cursorWhere = {
-          OR: [
-            {
-              price: {
-                gt: parsedCursor.price,
-              },
-            },
-            {
-              price: parsedCursor.price,
-              id: {
-                lt: parsedCursor.id,
-              },
-            },
-          ],
-        };
+      if (!parsedCursor) {
+        throw new AppError(
+          400,
+          'INVALID_CURSOR',
+          '올바르지 않은 cursor 값입니다.'
+        );
       }
-    } else if (sort === 'priceDesc') {
-      const parsedCursor = parsePriceCursor(cursor);
 
-      if (parsedCursor) {
-        cursorWhere = {
-          OR: [
-            {
-              price: {
-                lt: parsedCursor.price,
-              },
+      const priceCondition = sort === 'priceAsc' ? 'gt' : 'lt';
+
+      cursorWhere = {
+        OR: [
+          {
+            price: {
+              [priceCondition]: parsedCursor.price,
             },
-            {
-              price: parsedCursor.price,
-              id: {
-                lt: parsedCursor.id,
-              },
+          },
+          {
+            price: parsedCursor.price,
+            id: {
+              lt: parsedCursor.id,
             },
-          ],
-        };
-      }
+          },
+        ],
+      };
     } else {
+      const parsedCursor = Number(cursor);
+
+      if (!Number.isInteger(parsedCursor)) {
+        throw new AppError(
+          400,
+          'INVALID_CURSOR',
+          '올바르지 않은 cursor 값입니다.'
+        );
+      }
+
       cursorWhere = {
         id: {
-          lt: Number(cursor),
+          lt: parsedCursor,
         },
       };
     }
@@ -144,12 +153,13 @@ export const getMarketCardsService = async ({
           },
         },
       },
-      saleItems: {
-        where: {
-          purchaseItem: null,
-        },
+      _count: {
         select: {
-          id: true,
+          saleItems: {
+            where: {
+              purchaseItem: null,
+            },
+          },
         },
       },
     },
@@ -166,8 +176,7 @@ export const getMarketCardsService = async ({
     : null;
 
   const cards = currentSales.map((sale) => {
-    const remainingQuantity = sale.saleItems.length;
-
+    const remainingQuantity = sale._count.saleItems;
     return {
       saleId: sale.id,
       cardId: sale.photoCard.id,
@@ -225,12 +234,13 @@ export const getMarketCardDetailService = async (saleId) => {
           },
         },
       },
-      saleItems: {
-        where: {
-          purchaseItem: null,
-        },
+      _count: {
         select: {
-          id: true,
+          saleItems: {
+            where: {
+              purchaseItem: null,
+            },
+          },
         },
       },
     },
@@ -240,7 +250,7 @@ export const getMarketCardDetailService = async (saleId) => {
     throw new AppError(404, 'SALE_NOT_FOUND', '판매 카드를 찾을 수 없습니다.');
   }
 
-  const remainingQuantity = sale.saleItems.length;
+  const remainingQuantity = sale._count.saleItems;
 
   return {
     saleId: sale.id,
@@ -303,9 +313,16 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
 
     //구매자의 포인트가 충분한지 확인
     //TODO: 추후 point repository 만들어진 후 알맞게 수정 필요. (현재는 임시로 아무거나 적어둔 것)
-    const buyerPoint = await pointRepository.getPoint({ userId: buyerId, tx });
-    if (buyerPoint < totalPrice) {
-      //TODO: 에러 상수 넣기
+    const buyerPoint = await tx.point.findUnique({
+      where: {
+        userId: buyerId,
+      },
+      select: {
+        balance: true,
+      },
+    });
+
+    if (!buyerPoint || buyerPoint.balance < totalPrice) {
       throw new AppError(400, 'INSUFFICIENT_POINTS', '포인트가 부족합니다.');
     }
 
@@ -343,7 +360,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       newStatus: 'OWNED',
       tx,
     });
-    if (updatedCards.length !== quantity) {
+    if (updatedCards.count !== quantity) {
       throw new AppError(
         400,
         'CONCURRENCY_ERROR',
@@ -351,7 +368,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       );
     }
     await cardCopyRepository.updateCardCopiesOwnerId({
-      cardCopiesIds,
+      cardsIds: cardCopiesIds,
       ownerId: buyerId,
       tx,
     });
@@ -386,18 +403,26 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     }
 
     //3. 포인트 감소&증가
-    //TODO: 추후 point repository 만들어진 후 알맞게 수정 필요. (현재는 임시로 아무거나 적어둔 것)
-    //3-1. 구매 User의 포인트를 Price 만큼 감소
-    await pointRepository.decreasePoints({
-      userId: buyerId,
-      price: totalPrice,
-      tx,
+    await tx.point.update({
+      where: {
+        userId: buyerId,
+      },
+      data: {
+        balance: {
+          decrement: totalPrice,
+        },
+      },
     });
-    //3-2. 판매 User의 포인트를 Price 만큼 증가
-    await pointRepository.increasePoints({
-      userId: sale.sellerId,
-      price: totalPrice,
-      tx,
+
+    await tx.point.update({
+      where: {
+        userId: sale.sellerId,
+      },
+      data: {
+        balance: {
+          increment: totalPrice,
+        },
+      },
     });
 
     return await purchaseRepository.getPurchase({ id: purchase.id, tx });

@@ -1,3 +1,5 @@
+import prisma from '../configs/prisma.js';
+
 const purchaseItemRepository = {
   //단일생성
   createPurchaseItem: async ({ purchaseId, saleItemId, tx }) => {
