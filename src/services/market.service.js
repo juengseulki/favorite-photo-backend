@@ -264,8 +264,10 @@ export const getMarketCardDetailService = async (saleId) => {
 //카드 구매
 export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
   return await prisma.$transaction(async (tx) => {
+    //1. 구매 조건 체크
+
     //판매가 존재하는지 체크
-    const isExist = saleRepository.isExist({ saleId, tx });
+    const isExist = await saleRepository.isExist({ saleId, tx });
     if (!isExist) {
       //TODO: 에러 상수 넣기
       throw new AppError(
@@ -275,7 +277,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       );
     }
     //유효한 판매(Sale)인지 체크
-    const isOnSale = saleRepository.isOnSale({ saleId, tx });
+    const isOnSale = await saleRepository.isOnSale({ saleId, tx });
     if (!isOnSale) {
       throw new AppError(
         //TODO: 에러 상수 넣기
@@ -285,8 +287,11 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       );
     }
 
-    //본인 판매글 구매 방지 : 구매자=판매자 인지 체크
     const sale = await saleRepository.getSale({ saleId, tx });
+    const price = sale.price;
+    const totalPrice = quantity * price; //point 증/감 쪽에서도 사용
+
+    //본인 판매글 구매 방지 : 구매자=판매자 인지 체크
     if (buyerId === sale.sellerId) {
       //TODO: 에러 상수 넣기
       throw new AppError(
@@ -296,28 +301,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       );
     }
 
-    //1. 구매 조건 체크 (수량, 포인트가 충분한지)
-    //가장 먼저 체크하여, 불필요한 코드 실행을 줄인다.
-    const remainedQuantity =
-      await saleItemRepository.countActiveSaleItemsForSale({
-        saleId,
-        userId: sale.sellerId, //cardCopy의 보유자가 판매자가 맞는지 조건 체크 추가
-        tx,
-      });
-    //1-1. [구매 수량 > 판매 수량] 이면 에러
-    if (quantity > remainedQuantity) {
-      //TODO: 에러 상수 넣기
-      throw new AppError(
-        400,
-        'CARD_NOT_ENOUGH',
-        '판매 가능한 수량이, 구매 수량보다 적습니다.'
-      );
-    }
-    //1-2. [구매 수량 = 판매 수량]이면 품절 처리
-    if (quantity === remainedQuantity) {
-      await saleRepository.setStatus({ saleId, status: 'SOLD_OUT', tx });
-    }
-    //1-3. 구매자의 포인트가 충분한지 확인
+    //구매자의 포인트가 충분한지 확인
     //TODO: 추후 point repository 만들어진 후 알맞게 수정 필요. (현재는 임시로 아무거나 적어둔 것)
     const buyerPoint = await pointRepository.getPoint({ userId: buyerId, tx });
     if (buyerPoint < totalPrice) {
@@ -326,18 +310,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     }
 
     //2. 구매 기록하기
-    //2-1. Purchase 생성
-    const price = sale.price;
-    const totalPrice = quantity * price; //point 증/감 쪽에서도 사용
-    const purchase = await purchaseRepository.createPurchase({
-      buyerId,
-      saleId,
-      quantity,
-      totalPrice,
-      tx,
-    });
-    //2-2. PurchaseItems 생성
-    //필요한 개수(quantity)만큼 saleItems 가져오기
+    //2-1. 가능한 SaleItems를 먼저 가져오기.
     const saleItems = await saleItemRepository.getSaleItems({
       saleId: sale.id,
       quantity,
@@ -345,30 +318,72 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       userId: sale.sellerId,
       tx,
     });
-    //가져온 saleItems에서 id만 추출하기
+    if (saleItems.length < quantity) {
+      throw new AppError(
+        400,
+        'CARD_NOT_ENOUGH',
+        '재고가 부족하거나, 다른 사용자가 구매 중입니다.'
+      );
+    }
+    //가져온 saleItems에서 saleItem의 id, cardCopy의 id들을 추출하기
     const saleItemsIds = saleItems.map((item) => item.id);
-    //추출한 ids를 넣어 purchaseItems 생성하기
-    const purchaseItems = await purchaseItemRepository.createPurchaseItems({
-      purchaseId: purchase.id,
-      saleItemsIds,
-      tx,
-    });
-    //2-3. SaleItem - CardCopy의 소유 정보 변경
     const cardCopiesIds = saleItems.map((item) => item.cardCopyId);
+
+    //2-2. SaleItem - CardCopy의 소유 정보 변경
+    //실제로 구매가 가능한 상태라면 CardCopy의 소유 정보를 변경한다.
+    // 그리고 그 후에 Purchase를 만들도록 하여,
+    // 동시 요청 문제로, Purchase가 만들어진 상황에 cardcopy 업데이트 충돌이 되는 문제를 예방한다.
+
     //ownerId를 구매자로, 상태를 OWNED로.
     //원래는 아래 두 코드의 순서가 반대였는데, 정합성 문제로 바꿈. (AI가 검토하여 제안해준 사항) (그러나 아직 완벽히 이해하지 못했다.)
-    await cardCopyRepository.switchCardsStatus({
+    const updatedCards = await cardCopyRepository.switchCardsStatus({
       userId: sale.sellerId, //원래 buyerId로 했었음.
       cardIds: cardCopiesIds,
       prevStatus: 'ON_SALE',
       newStatus: 'OWNED',
       tx,
     });
+    if (updatedCards.length !== quantity) {
+      throw new AppError(
+        400,
+        'CONCURRENCY_ERROR',
+        '다수 사용자 구매로 충돌이 발생하여 구매에 실패했습니다.'
+      );
+    }
     await cardCopyRepository.updateCardCopiesOwnerId({
       cardCopiesIds,
       ownerId: buyerId,
       tx,
     });
+
+    //2-3. Purchase 생성
+    const purchase = await purchaseRepository.createPurchase({
+      buyerId,
+      saleId,
+      quantity,
+      totalPrice,
+      tx,
+    });
+
+    //2-4. PurchaseItems 생성
+    //추출한 ids를 넣어 purchaseItems 생성하기
+    const purchaseItems = await purchaseItemRepository.createPurchaseItems({
+      purchaseId: purchase.id,
+      saleItemsIds,
+      tx,
+    });
+
+    //품절 처리 : 구매가 끝난 뒤 품절 처리하는 것이 자연스러운 흐름이므로, 위치를 여기로 수정.
+    const remainedQuantity =
+      await saleItemRepository.countActiveSaleItemsForSale({
+        saleId,
+        userId: sale.sellerId, //cardCopy의 보유자가 판매자가 맞는지 조건 체크 추가
+        tx,
+      });
+    //판매 수량이 0이면 품절 처리
+    if (remainedQuantity === 0) {
+      await saleRepository.setStatus({ saleId, status: 'SOLD_OUT', tx });
+    }
 
     //3. 포인트 감소&증가
     //TODO: 추후 point repository 만들어진 후 알맞게 수정 필요. (현재는 임시로 아무거나 적어둔 것)
