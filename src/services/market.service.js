@@ -285,9 +285,19 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       );
     }
 
+    //본인 판매글 구매 방지 : 구매자=판매자 인지 체크
+    const sale = await saleRepository.getSale({ saleId, tx });
+    if (buyerId === sale.sellerId) {
+      //TODO: 에러 상수 넣기
+      throw new AppError(
+        400,
+        'CANNOT_BUY_OWN_CARD',
+        '본인이 등록한 포토카드는 구매할 수 없습니다.'
+      );
+    }
+
     //1. 구매 조건 체크 (수량, 포인트가 충분한지)
     //가장 먼저 체크하여, 불필요한 코드 실행을 줄인다.
-    const sale = await saleRepository.getSale({ saleId, tx });
     const remainedQuantity =
       await saleItemRepository.countActiveSaleItemsForSale({
         saleId,
