@@ -54,3 +54,5 @@ const purchaseItemRepository = {
     });
   },
 };
+
+export default purchaseItemRepository;
