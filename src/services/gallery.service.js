@@ -56,7 +56,7 @@ export const getMyCardsService = async ({
   }
 
   //DB 조회
-  const [cards, totalCount] = await Promise.all([
+  const [cards, totalCount, gradeCounts] = await Promise.all([
     prisma.photoCard.findMany({
       where,
       skip,
@@ -87,7 +87,20 @@ export const getMyCardsService = async ({
     }),
 
     prisma.photoCard.count({ where }),
+
+    prisma.photoCard.groupBy({
+      by: ['grade'],
+      where,
+      _count: {
+        grade: true,
+      },
+    }),
   ]);
+
+  const gradeCount = gradeCounts.map((item) => ({
+    grade: item.grade,
+    count: item._count.grade,
+  }));
 
   const formattedCards = cards.map((card) => ({
     id: card.id,
@@ -106,6 +119,7 @@ export const getMyCardsService = async ({
 
   return {
     items: formattedCards,
+    gradeCount,
     meta: {
       page,
       limit,
