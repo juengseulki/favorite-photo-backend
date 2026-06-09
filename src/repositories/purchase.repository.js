@@ -1,4 +1,4 @@
-import prisma from '../configs/prisma';
+import prisma from '../configs/prisma.js';
 
 const purchaseRepository = {
   createPurchase: async ({ buyerId, saleId, quantity, totalPrice, tx }) => {
