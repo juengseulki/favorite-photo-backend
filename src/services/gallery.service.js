@@ -1,6 +1,8 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
+const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
+
 export const getMyCardsService = async ({
   userId,
   keyword,
@@ -23,6 +25,15 @@ export const getMyCardsService = async ({
     ...(grade && { grade }),
     ...(genre && { genre }),
 
+    cardCopies: {
+      some: {
+        ownerId: userId,
+      },
+    },
+  };
+
+  //등급 필터링(userId 조회)
+  const countWhere = {
     cardCopies: {
       some: {
         ownerId: userId,
@@ -56,7 +67,7 @@ export const getMyCardsService = async ({
   }
 
   //DB 조회
-  const [cards, totalCount, gradeCounts] = await Promise.all([
+  const [cards, totalCount, allCardsForCount] = await Promise.all([
     prisma.photoCard.findMany({
       where,
       skip,
@@ -88,19 +99,39 @@ export const getMyCardsService = async ({
 
     prisma.photoCard.count({ where }),
 
-    prisma.photoCard.groupBy({
-      by: ['grade'],
-      where,
-      _count: {
+    prisma.photoCard.findMany({
+      where: countWhere,
+      select: {
         grade: true,
+        cardCopies: {
+          where: {
+            ownerId: userId,
+          },
+          select: {
+            id: true,
+          },
+        },
       },
     }),
   ]);
 
-  const gradeCount = gradeCounts.map((item) => ({
-    grade: item.grade,
-    count: item._count.grade,
+  const counts = {};
+
+  allCardsForCount.forEach((card) => {
+    counts[card.grade] = (counts[card.grade] || 0) + card.cardCopies.length;
+  });
+
+  // 등급별 보유 수량
+  const gradeCount = GRADES.map((grade) => ({
+    grade,
+    count: counts[grade] || 0,
   }));
+
+  // 총 보유 수량
+  const totalCopyCount = Object.values(counts).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   const formattedCards = cards.map((card) => ({
     id: card.id,
@@ -124,6 +155,7 @@ export const getMyCardsService = async ({
       page,
       limit,
       totalCount,
+      totalCopyCount,
       totalPages,
       hasNextPage,
     },
