@@ -328,6 +328,8 @@ model ExchangeProposal {
 
   offeredCardCopyId Int
 
+  description String @default("")
+
   status ExchangeStatus @default(PENDING)
 
   sale Sale @relation(fields: [saleId], references: [id])
