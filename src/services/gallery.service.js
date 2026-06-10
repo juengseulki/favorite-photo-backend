@@ -1,6 +1,8 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
+const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
+
 export const getMyCardsService = async ({
   userId,
   keyword,
@@ -30,14 +32,8 @@ export const getMyCardsService = async ({
     },
   };
 
+  //등급 필터링(userId 조회)
   const countWhere = {
-    ...(keyword && {
-      name: {
-        contains: keyword,
-        mode: 'insensitive',
-      },
-    }),
-    ...(genre && { genre }),
     cardCopies: {
       some: {
         ownerId: userId,
@@ -125,11 +121,13 @@ export const getMyCardsService = async ({
     counts[card.grade] = (counts[card.grade] || 0) + card.cardCopies.length;
   });
 
-  const gradeCount = Object.entries(counts).map(([grade, count]) => ({
+  // 등급별 보유 수량
+  const gradeCount = GRADES.map((grade) => ({
     grade,
-    count,
+    count: counts[grade] || 0,
   }));
 
+  // 총 보유 수량
   const totalCopyCount = Object.values(counts).reduce(
     (sum, count) => sum + count,
     0
