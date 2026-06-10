@@ -26,7 +26,7 @@ const saleRepository = {
   modifySale: async ({ saleId, data, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.sale.update({
-      where: { id: saleId },
+      where: { id: Number(saleId) },
       data: data,
     });
   },
@@ -34,7 +34,7 @@ const saleRepository = {
   cancelSale: async ({ saleId, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.sale.update({
-      where: { id: saleId },
+      where: { id: Number(saleId) },
       data: { status: 'CANCELED' },
     });
   },
@@ -42,14 +42,14 @@ const saleRepository = {
   getSale: async ({ saleId, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.sale.findUnique({
-      where: { id: saleId },
+      where: { id: Number(saleId) },
     });
   },
 
   setStatus: async ({ saleId, status, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.sale.update({
-      where: { id: saleId },
+      where: { id: Number(saleId) },
       data: { status: status },
     });
   },
@@ -57,7 +57,7 @@ const saleRepository = {
   isExist: async ({ saleId, tx }) => {
     const dbClient = tx || prisma;
     const isExist = await dbClient.sale.findUnique({
-      where: { id: saleId },
+      where: { id: Number(saleId) },
     });
     return isExist ? true : false;
   },
@@ -65,7 +65,7 @@ const saleRepository = {
   isOnSale: async ({ saleId, tx }) => {
     const dbClient = tx || prisma;
     const isOnSale = await dbClient.sale.findUnique({
-      where: { id: saleId, status: 'ON_SALE' },
+      where: { id: Number(saleId), status: 'ON_SALE' },
     });
     return isOnSale ? true : false;
   },

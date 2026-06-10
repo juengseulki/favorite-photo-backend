@@ -7,11 +7,22 @@ const saleItemRepository = {
       data: datas,
     });
   },
+  getSaleItem: async ({ saleId, tx }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.saleItem.findFirst({
+      where: {
+        saleId: Number(saleId),
+      },
+      orderBy: {
+        id: 'desc',
+      },
+    });
+  },
   getSaleItems: async ({ saleId, quantity, status, userId, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.saleItem.findMany({
       where: {
-        saleId: saleId,
+        saleId: Number(saleId),
         cardCopy: {
           status: status || undefined,
           ownerId: userId || undefined,
@@ -23,12 +34,24 @@ const saleItemRepository = {
   //update는 status 변경 외엔 해야 할 사항 없음.
   //delete도 일어나지 않음. (그저 sale이 종료가 되고, cardcopy는 OWNED상태로 바뀌는 것 뿐.)
 
+  countAllSaleItemsForSale: async ({ saleId, tx }) => {
+    const dbClient = tx || prisma;
+    return await dbClient.saleItem.count({
+      where: {
+        saleId: Number(saleId),
+        cardCopy: {
+          ownerId: userId,
+          status: 'ON_SALE' || 'OWNED',
+        },
+      },
+    });
+  },
   //TODO: 추후 사용성을 고려하여, status를 인자로 받도록 수정 필요
   countActiveSaleItemsForSale: async ({ saleId, userId, tx }) => {
     const dbClient = tx || prisma;
     return await dbClient.saleItem.count({
       where: {
-        saleId: saleId,
+        saleId: Number(saleId),
         cardCopy: {
           ownerId: userId,
           status: 'ON_SALE',

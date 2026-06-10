@@ -4,6 +4,7 @@ import saleRepository from '../repositories/sale.repository.js';
 import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
+import photoCardRepository from '../repositories/photoCard.repository.js';
 
 export const createSale = async ({
   photoCardId,
@@ -222,6 +223,33 @@ export const cancelSale = async (saleId, userId) => {
   });
 };
 
+export const getSale = async (saleId) => {
+  return await saleRepository.getSale({ saleId });
+};
+
+export const getPhotocardBySaleId = async (saleId) => {
+  const saleItem = await saleItemRepository.getSaleItem({ saleId });
+  const cardCopy = await cardCopyRepository.getCardCopy({
+    cardCopyId: saleItem.cardCopyId,
+  });
+  const photocard = await photoCardRepository.getPhotoCard({
+    photoCardId: cardCopy.photoCardId,
+  });
+  return photocard;
+};
+
+export const countAllCards = async (saleId) => {
+  return await saleItemRepository.countAllSaleItemsForSale({ saleId });
+};
+
+export const countActiveCards = async (saleId, userId) => {
+  const response = await saleItemRepository.countActiveSaleItemsForSale({
+    saleId,
+    userId,
+  });
+  return response;
+};
+
 const createSaleItemsAndCards = async (
   photoCardId,
   quantity,
@@ -259,6 +287,14 @@ const createSaleItemsAndCards = async (
   return { saleItems, onSaleCards };
 };
 
-const saleService = { createSale, modifySale, cancelSale };
+const saleService = {
+  createSale,
+  modifySale,
+  cancelSale,
+  getSale,
+  getPhotocardBySaleId,
+  countAllCards,
+  countActiveCards,
+};
 
 export default saleService;

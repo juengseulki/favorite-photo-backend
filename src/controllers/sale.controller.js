@@ -91,5 +91,61 @@ export const cancelSale = async (req, res, next) => {
   }
 };
 
-const saleController = { createSale, modifySale, cancelSale };
+export const getSale = async (req, res, next) => {
+  try {
+    const { saleId } = req.params;
+
+    const response = await saleService.getSale(saleId);
+
+    res.status(200).json({ data: response, message: 'success' });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const getPhotocardBySaleId = async (req, res, next) => {
+  try {
+    const { saleId } = req.params;
+    const response = await saleService.getPhotocardBySaleId(saleId);
+
+    res.status(200).json({ data: response, message: 'success' });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const countAllCards = async (req, res, next) => {
+  console.log('countAllCardsㅇ ㄷ도닫ㄹ:');
+
+  try {
+    const { saleId } = req.params;
+    const response = await saleService.countAllCards(saleId);
+    console.log('response:', response);
+    res.status(200).json({ data: response, message: 'success' });
+  } catch (e) {
+    console.log('error', e);
+    next(e);
+  }
+};
+export const countActiveCards = async (req, res, next) => {
+  try {
+    const { saleId } = req.params;
+    const userId = req.user.id;
+
+    const response = await saleService.countActiveCards(saleId, userId);
+    res.status(200).json({ data: response, message: 'success' });
+  } catch (e) {
+    next(e);
+  }
+};
+
+const saleController = {
+  createSale,
+  modifySale,
+  cancelSale,
+  getSale,
+  getPhotocardBySaleId,
+  countAllCards,
+  countActiveCards,
+};
 export default saleController;
