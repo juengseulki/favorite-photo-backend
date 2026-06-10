@@ -30,6 +30,21 @@ export const getMyCardsService = async ({
     },
   };
 
+  const countWhere = {
+    ...(keyword && {
+      name: {
+        contains: keyword,
+        mode: 'insensitive',
+      },
+    }),
+    ...(genre && { genre }),
+    cardCopies: {
+      some: {
+        ownerId: userId,
+      },
+    },
+  };
+
   //정렬
   let orderBy;
 
@@ -56,7 +71,7 @@ export const getMyCardsService = async ({
   }
 
   //DB 조회
-  const [cards, totalCount, gradeCounts] = await Promise.all([
+  const [cards, totalCount, allCardsForCount] = await Promise.all([
     prisma.photoCard.findMany({
       where,
       skip,
@@ -88,19 +103,37 @@ export const getMyCardsService = async ({
 
     prisma.photoCard.count({ where }),
 
-    prisma.photoCard.groupBy({
-      by: ['grade'],
-      where,
-      _count: {
+    prisma.photoCard.findMany({
+      where: countWhere,
+      select: {
         grade: true,
+        cardCopies: {
+          where: {
+            ownerId: userId,
+          },
+          select: {
+            id: true,
+          },
+        },
       },
     }),
   ]);
 
-  const gradeCount = gradeCounts.map((item) => ({
-    grade: item.grade,
-    count: item._count.grade,
+  const counts = {};
+
+  allCardsForCount.forEach((card) => {
+    counts[card.grade] = (counts[card.grade] || 0) + card.cardCopies.length;
+  });
+
+  const gradeCount = Object.entries(counts).map(([grade, count]) => ({
+    grade,
+    count,
   }));
+
+  const totalCopyCount = Object.values(counts).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   const formattedCards = cards.map((card) => ({
     id: card.id,
@@ -124,6 +157,7 @@ export const getMyCardsService = async ({
       page,
       limit,
       totalCount,
+      totalCopyCount,
       totalPages,
       hasNextPage,
     },
