@@ -23,6 +23,11 @@ export const exchangeSchemas = {
         example: 3,
       },
 
+      description: {
+        type: 'string',
+        example: '겨울 풍경 카드와 교환 희망합니다.',
+      },
+
       status: {
         type: 'string',
         enum: ['PENDING', 'ACCEPTED', 'REJECTED', 'CANCELED'],
@@ -59,7 +64,7 @@ export const exchangeSchemas = {
 
       description: {
         type: 'string',
-        example: '이 카드와 교환하고 싶습니다.',
+        example: '겨울 풍경 카드와 교환 희망합니다.',
       },
     },
   },
