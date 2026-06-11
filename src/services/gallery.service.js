@@ -284,3 +284,125 @@ export const postMyCardsService = async ({
     createdAt: result.createdAt,
   };
 };
+
+export const getMyTradesService = async ({
+  userId,
+  keyword,
+  grade,
+  genre,
+  tradeType,
+  isSoldOut,
+  page,
+  limit,
+  sort,
+}) => {
+  //페이지네이션에 이용할 skip
+  const skip = (page - 1) * limit;
+
+  //정렬
+  let orderBy;
+  switch (sort) {
+    case 'oldest':
+      orderBy = { createdAt: 'asc' };
+      break;
+
+    case 'latest':
+      orderBy = { createdAt: 'desc' };
+      break;
+
+    case 'priceAsc':
+      orderBy = { initialPrice: 'asc' };
+      break;
+
+    case 'priceDesc':
+      orderBy = { initialPrice: 'desc' };
+      break;
+
+    default:
+      orderBy = { createdAt: 'desc' };
+      break;
+  }
+
+  //포토카드 전체 Where절 조건
+  const photoCardWhere = {
+    ...(keyword && { name: { contains: keyword, mode: 'insensitive' } }),
+    ...(grade && grade),
+    ...(genre && genre),
+  };
+
+  //----판매 목록 가져오기----
+  //soldOut값에 따른 where절 조건
+  const isSoldOutWhere =
+    isSoldOut === undefined
+      ? { in: ['ON_SALE', 'SOLD_OUT'] }
+      : isSoldOut
+        ? 'SOLD_OUT'
+        : 'ON_SALE';
+
+  //sale 가져오기
+  const sales = [];
+  //판매방법이 선택되지 않았거나, 판매 방법이 "SALE"이라면, SALE을 가져온다.
+  if (!tradeType || tradeType === 'SALE') {
+    sales = await prisma.sale.findMany({
+      where: {
+        sellerId: userId,
+        status: isSoldOutWhere, //매진여부에 따라 가져온다.
+        photoCard: photoCardWhere,
+      },
+      include: {
+        //포토카드 정보 가져오기(실제로 표시할 내용이 대부분 담긴 것)
+        photoCard: {
+          //포토카드에 연결된 유저의 이름을 알아야 하므로
+          creator: { select: { nickname: true } },
+        },
+        //수량을 세기 위함.
+        saleItems: true,
+      },
+      orderBy,
+    });
+  }
+
+  //----교환 목록 가져오기----
+  let exchangeProposals = [];
+  //판매 방법이 선택되지 않았거나, 판매 방법이 "EXCHANGE"라면, EXCHANGE를 가져온다.
+  if (!tradeType || tradeType === 'EXCHANGE') {
+    exchangeProposals = await prisma.exchangeProposal.findMany({
+      where: {
+        proposerId: userId,
+        status: 'PENDING', //교환 대기 중인 카드만
+        offeredCardCopy: {
+          photoCard: photoCardWhere,
+        },
+      },
+      include: {
+        photoCard: {
+          //포토카드 정보 가져오기(실제로 표시할 내용이 대부분 담긴 것)
+          include: {
+            //포토카드에 연결된 유저의 이름을 알아야 하므로
+            creator: { select: { nickname: true } },
+          },
+        },
+        //가격 정보를 가져오기 위함
+        sale: { select: { price: true } },
+      },
+      orderBy,
+    });
+  }
+
+  //----가져온 정보를, 예쁘게 넘겨주 수 있도록 포맷팅----
+  const formattedSales = sales.map((sale) => ({
+    saleId: sale.id,
+    photoCardId: sale.photoCardId,
+    name: sale.photoCard.name,
+    imageUrl: sale.photoCard.imageUrl,
+    grade: sale.photoCard.grade,
+    genre: sale.photoCard.genre,
+    creatorNickname: sale.photoCard.creator.nickname,
+    quantity: sale.saleItems.length,
+    status: 'ON_SALE',
+    statusLabel: '판매 중',
+    price: sale.price,
+    createdAt: sale.createdAt,
+  }));
+  const formattedExchanges = exchangeProposals.map((ex) => {});
+};

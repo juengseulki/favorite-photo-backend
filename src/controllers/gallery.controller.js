@@ -1,6 +1,7 @@
 import {
   getMyCardsService,
   postMyCardsService,
+  getMyTradesService,
 } from '../services/gallery.service.js';
 
 export const getMyCards = async (req, res, next) => {
@@ -61,5 +62,41 @@ export const postMyCards = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const getMyTrades = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const {
+      keyword,
+      grade,
+      genre,
+      tradeType, //SALE | EXCHANGE
+      isSoldOut, //true->SOLD_OUT만, false-> SALE만
+      page = 1,
+      limit = 15,
+      sort = 'latest',
+    } = req.query;
+
+    const result = await getMyTradesService({
+      userId,
+      keyword,
+      grade,
+      genre,
+      tradeType,
+      isSoldOut,
+      page: Number(page),
+      limit: Number(limit),
+      sort,
+    });
+
+    return res.status(200).json({
+      data: result,
+      message: 'success',
+    });
+  } catch (error) {
+    next(e);
   }
 };
