@@ -39,15 +39,10 @@ export const postMyCards = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    const {
-      name,
-      description,
-      imageUrl,
-      grade,
-      genre,
-      initialPrice,
-      totalQuantity,
-    } = req.body;
+    const { name, description, grade, genre, initialPrice, totalQuantity } =
+      req.body;
+
+    const imageUrl = `/uploads/${req.file.filename}`;
 
     const result = await postMyCardsService({
       userId,
@@ -56,8 +51,8 @@ export const postMyCards = async (req, res, next) => {
       imageUrl,
       grade,
       genre,
-      initialPrice,
-      totalQuantity,
+      initialPrice: Number(initialPrice),
+      totalQuantity: Number(totalQuantity),
     });
 
     return res.status(200).json({
