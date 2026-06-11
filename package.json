@@ -10,7 +10,7 @@
     "start": "node src/server.js",
     "prisma:studio": "prisma studio",
     "prisma:migrate": "prisma migrate dev",
-    "prepare": "husky",
+    "prepare": "husky || true",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -37,6 +37,7 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
+    "multer": "^2.1.1",
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "passport-kakao": "^1.0.1",

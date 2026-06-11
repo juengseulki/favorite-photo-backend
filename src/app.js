@@ -33,6 +33,7 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(passport.initialize());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use('/uploads', express.static('uploads'));
 
 app.get('/', (req, res) => {
   res.json({ message: 'Favorite Photo Backend API' });
