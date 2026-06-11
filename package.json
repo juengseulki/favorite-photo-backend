@@ -26,6 +26,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@logtail/node": "^0.5.8",
+    "@logtail/winston": "^0.5.8",
     "@prisma/client": "^6.19.3",
     "argon2": "^0.44.0",
     "bcrypt": "^6.0.0",

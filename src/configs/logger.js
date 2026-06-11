@@ -4,6 +4,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 
+import { Logtail } from '@logtail/node';
+import { LogtailTransport } from '@logtail/winston';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOG_DIR = path.join(__dirname, '../../logs');
 
@@ -32,6 +35,13 @@ const transports = [
   }),
 ];
 
+/**
+ * 로컬 개발:
+ * logs 폴더 저장
+ *
+ * 운영(Render):
+ * ENABLE_FILE_LOG=true일 때만 파일 저장
+ */
 if (!isProduction || process.env.ENABLE_FILE_LOG === 'true') {
   transports.push(
     new DailyRotateFile({
@@ -41,6 +51,7 @@ if (!isProduction || process.env.ENABLE_FILE_LOG === 'true') {
       maxFiles: '14d',
       zippedArchive: true,
     }),
+
     new DailyRotateFile({
       dirname: LOG_DIR,
       filename: 'error-%DATE%.log',
@@ -52,14 +63,26 @@ if (!isProduction || process.env.ENABLE_FILE_LOG === 'true') {
   );
 }
 
+/**
+ * 운영 로그 저장 (Better Stack)
+ */
+if (process.env.LOGTAIL_TOKEN) {
+  const logtail = new Logtail(process.env.LOGTAIL_TOKEN);
+
+  transports.push(new LogtailTransport(logtail));
+}
+
 const logger = winston.createLogger({
   levels: { ...winston.config.npm.levels, http: 5 },
+
   level: isProduction ? 'info' : 'http',
+
   format: combine(
     timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
     errors({ stack: true }),
     logFormat
   ),
+
   transports,
 });
 
