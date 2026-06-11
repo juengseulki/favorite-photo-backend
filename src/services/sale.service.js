@@ -65,9 +65,14 @@ export const createSale = async ({
 export const modifySale = async (saleId, photoCardId, userId, data) => {
   return await prisma.$transaction(async (tx) => {
     const sale = await saleRepository.getSale({ saleId, tx });
+    //본인의 판매글인지 검사
+    if (sale.sellerId !== userId) {
+      throw new AppError(403, 'NOT_SALE_OWNER', '판매자만 수정할 수 있습니다.');
+    }
+    //판매 중인 판매글인지 검사
     if (sale.status !== 'ON_SALE') {
       throw new AppError(
-        400,
+        409,
         'SALE_ALREADY_SOLD_OUT',
         '이미 판매 완료된 상품입니다.'
       );
@@ -185,11 +190,15 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
 
 export const cancelSale = async (saleId, userId) => {
   await prisma.$transaction(async (tx) => {
-    //Sale이 현재 ON_SALE인지 검증 (교환 완료 후에도 판매글이 종료되기에, 끝난 걸 다시 취소하는 것 방지)
     const sale = await saleRepository.getSale({ saleId, tx });
+    //본인의 판매글인지 검사
+    if (sale.sellerId !== userId) {
+      throw new AppError(403, 'NOT_SALE_OWNER', '판매자만 취소할 수 있습니다.');
+    }
+    //Sale이 현재 ON_SALE인지 검증 (교환 완료 후에도 판매글이 종료되기에, 끝난 걸 다시 취소하는 것 방지)
     if (sale.status !== 'ON_SALE') {
       throw new AppError(
-        400,
+        409,
         'SALE_ALREADY_SOLD_OUT',
         '이미 판매 완료된 상품입니다.'
       );
