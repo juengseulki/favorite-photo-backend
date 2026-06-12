@@ -61,12 +61,12 @@ export const modifySale = async (req, res, next) => {
     const { saleId } = req.params;
     const userId = req.user.id;
     const { photoCardId, data } = req.body;
-    const response = await saleService.modifySale(
-      saleId,
-      photoCardId,
+    const response = await saleService.modifySale({
+      saleId: Number(saleId),
+      photoCardId: Number(photoCardId),
       userId,
-      data
-    );
+      data,
+    });
     res.status(200).json({ data: response, message: 'success' });
   } catch (e) {
     next(e);
@@ -76,7 +76,7 @@ export const cancelSale = async (req, res, next) => {
   const userId = req.user.id;
   try {
     const { saleId } = req.params;
-    await saleService.cancelSale(saleId, userId);
+    await saleService.cancelSale({ saleId: Number(saleId), userId });
     res.status(204).json({ message: 'success' });
   } catch (e) {
     next(e);

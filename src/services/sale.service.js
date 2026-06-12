@@ -58,7 +58,7 @@ export const createSale = async ({
 };
 
 //들어오는 정보에 대해서만 update. 들어오지 않는 정보는 현상유지.
-export const modifySale = async (saleId, photoCardId, userId, data) => {
+export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
   return await prisma.$transaction(async (tx) => {
     const sale = await saleRepository.getSale({ saleId, tx });
     //본인의 판매글인지 검사
@@ -175,7 +175,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   });
 };
 
-export const cancelSale = async (saleId, userId) => {
+export const cancelSale = async ({ saleId, userId }) => {
   await prisma.$transaction(async (tx) => {
     const sale = await saleRepository.getSale({ saleId, tx });
     //본인의 판매글인지 검사
