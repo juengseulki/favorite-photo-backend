@@ -5,6 +5,7 @@ import purchaseItemRepository from '../repositories/purchaseItem.repository.js';
 import saleRepository from '../repositories/sale.repository.js';
 import saleItemRepository from '../repositories/saleItem.repository.js';
 import cardCopyRepository from '../repositories/cardCopy.repository.js';
+import { CardStatus, SaleStatus } from '@prisma/client';
 
 const parsePriceCursor = (cursor) => {
   if (!cursor) return null;
@@ -331,7 +332,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     const saleItems = await saleItemRepository.getSaleItems({
       saleId: sale.id,
       quantity,
-      status: 'ON_SALE',
+      status: CardStatus.ON_SALE,
       userId: sale.sellerId,
       tx,
     });
@@ -356,8 +357,8 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     const updatedCards = await cardCopyRepository.switchCardsStatus({
       userId: sale.sellerId, //원래 buyerId로 했었음.
       cardIds: cardCopiesIds,
-      prevStatus: 'ON_SALE',
-      newStatus: 'OWNED',
+      prevStatus: CardStatus.ON_SALE,
+      newStatus: CardStatus.OWNED,
       tx,
     });
     if (updatedCards.count !== quantity) {
@@ -399,7 +400,11 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       });
     //판매 수량이 0이면 품절 처리
     if (remainedQuantity === 0) {
-      await saleRepository.setStatus({ saleId, status: 'SOLD_OUT', tx });
+      await saleRepository.setStatus({
+        saleId,
+        status: SaleStatus.SOLD_OUT,
+        tx,
+      });
     }
 
     //3. 포인트 감소&증가
