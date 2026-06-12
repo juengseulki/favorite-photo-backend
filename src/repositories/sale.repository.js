@@ -1,3 +1,4 @@
+import { SaleStatus } from '@prisma/client';
 import prisma from '../configs/prisma.js';
 
 const saleRepository = {
@@ -35,7 +36,7 @@ const saleRepository = {
     const dbClient = tx || prisma;
     return await dbClient.sale.update({
       where: { id: saleId },
-      data: { status: 'CANCELED' },
+      data: { status: SaleStatus.CANCELED },
     });
   },
 
@@ -65,7 +66,7 @@ const saleRepository = {
   isOnSale: async ({ saleId, tx }) => {
     const dbClient = tx || prisma;
     const isOnSale = await dbClient.sale.findUnique({
-      where: { id: saleId, status: 'ON_SALE' },
+      where: { id: saleId, status: SaleStatus.ON_SALE },
     });
     return isOnSale ? true : false;
   },
