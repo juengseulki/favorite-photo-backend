@@ -37,6 +37,11 @@ export const ERROR_CODES = {
     errorCode: 'INVALID_FORMAT',
     message: customMsg,
   }),
+  CONSURRENCY_ERROR: (customMsg = '충돌이 발생했습니다.') => ({
+    httpStatus: 409,
+    errorCode: 'CONCURRENCY_ERROR',
+    message: customMsg,
+  }),
 
   // ---인증---
   EMAIL_REQUIRED: (customMsg = '이메일을 입력해 주세요.') => ({
@@ -174,6 +179,11 @@ export const ERROR_CODES = {
   ) => ({
     httpStatus: 409,
     errorCode: 'CARD_COPY_NOT_OWNED',
+    message: customMsg,
+  }),
+  CARD_COPY_NOT_ENOUGH: (customMsg = '보유한 카드 수량이 부족합니다.') => ({
+    httpStatus: 400,
+    errorCode: 'CARD_COPY_NOT_ENOUGH',
     message: customMsg,
   }),
 

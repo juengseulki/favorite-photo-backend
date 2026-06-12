@@ -5,6 +5,7 @@ import exchangeProposalRepository from '../repositories/exchangeProposal.reposit
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 import { CardStatus, ExchangeStatus, SaleStatus } from '@prisma/client';
+import { ERROR_CODES } from '../constants/errorCodes.js';
 
 export const createSale = async ({
   photoCardId,
@@ -26,12 +27,7 @@ export const createSale = async ({
         tx,
       });
       if (quantity > avilableCardCopies.length) {
-        //TODO: 에러 상수 넣기
-        throw new AppError(
-          400,
-          'CARD_NOT_ENOUGH',
-          '요청 수량 대비 카드가 부족합니다.'
-        );
+        throw new AppError(ERROR_CODES.CARD_COPY_NOT_ENOUGH());
       }
 
       //1. Sale 생성
@@ -63,7 +59,7 @@ export const createSale = async ({
 };
 
 //들어오는 정보에 대해서만 update. 들어오지 않는 정보는 현상유지.
-export const modifySale = async (saleId, photoCardId, userId, data) => {
+export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
   return await prisma.$transaction(async (tx) => {
     const sale = await saleRepository.getSale({ saleId, tx });
     //본인의 판매글인지 검사
@@ -72,11 +68,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
     }
     //판매 중인 판매글인지 검사
     if (sale.status !== SaleStatus.ON_SALE) {
-      throw new AppError(
-        409,
-        'SALE_ALREADY_SOLD_OUT',
-        '이미 판매 완료된 상품입니다.'
-      );
+      throw new AppError(ERROR_CODES.SALE_ALREADY_SOLD_OUT());
     }
     const {
       quantity,
@@ -145,12 +137,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
             tx,
           });
           if (remainedCount > remainCards.length) {
-            //TODO: 에러 상수 넣기
-            throw new AppError(
-              400,
-              'CARD_NOT_ENOUGH',
-              '요청 수량 대비 카드가 부족합니다.'
-            );
+            throw new AppError(ERROR_CODES.CARD_COPY_NOT_ENOUGH());
           }
           if (remainedCount > 0) {
             await createSaleItemsAndCards(
@@ -189,7 +176,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   });
 };
 
-export const cancelSale = async (saleId, userId) => {
+export const cancelSale = async ({ saleId, userId }) => {
   await prisma.$transaction(async (tx) => {
     const sale = await saleRepository.getSale({ saleId, tx });
     //본인의 판매글인지 검사
@@ -198,11 +185,7 @@ export const cancelSale = async (saleId, userId) => {
     }
     //Sale이 현재 ON_SALE인지 검증 (교환 완료 후에도 판매글이 종료되기에, 끝난 걸 다시 취소하는 것 방지)
     if (sale.status !== SaleStatus.ON_SALE) {
-      throw new AppError(
-        409,
-        'SALE_ALREADY_SOLD_OUT',
-        '이미 판매 완료된 상품입니다.'
-      );
+      throw new AppError(ERROR_CODES.SALE_ALREADY_SOLD_OUT());
     }
 
     //1. Sale에 연결된 cardCopy의 상태는 ON_SALE -> OWNED로 변경

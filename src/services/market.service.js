@@ -280,22 +280,12 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     //판매가 존재하는지 체크
     const isExist = await saleRepository.isExist({ saleId, tx });
     if (!isExist) {
-      //TODO: 에러 상수 넣기
-      throw new AppError(
-        400,
-        'SALE_NOT_FOUND',
-        '판매 정보를 찾을 수 없습니다.'
-      );
+      throw new AppError(ERROR_CODES.SALE_NOT_FOUND());
     }
     //유효한 판매(Sale)인지 체크
     const isOnSale = await saleRepository.isOnSale({ saleId, tx });
     if (!isOnSale) {
-      throw new AppError(
-        //TODO: 에러 상수 넣기
-        400,
-        'SALE_NOT_AVAILABLE',
-        '구매할 수 없는 상품입니다.'
-      );
+      throw new AppError(ERROR_CODES.SALE_NOT_AVAILABLE());
     }
 
     const sale = await saleRepository.getSale({ saleId, tx });
@@ -304,12 +294,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
 
     //본인 판매글 구매 방지 : 구매자=판매자 인지 체크
     if (buyerId === sale.sellerId) {
-      //TODO: 에러 상수 넣기
-      throw new AppError(
-        400,
-        'CANNOT_BUY_OWN_CARD',
-        '본인이 등록한 포토카드는 구매할 수 없습니다.'
-      );
+      throw new AppError(ERROR_CODES.CANNOT_BUY_OWN_CARD());
     }
 
     //구매자의 포인트가 충분한지 확인
@@ -324,7 +309,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     });
 
     if (!buyerPoint || buyerPoint.balance < totalPrice) {
-      throw new AppError(400, 'INSUFFICIENT_POINTS', '포인트가 부족합니다.');
+      throw new AppError(ERROR_CODES.INSUFFICIENT_POINTS());
     }
 
     //2. 구매 기록하기
@@ -338,9 +323,9 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     });
     if (saleItems.length < quantity) {
       throw new AppError(
-        400,
-        'CARD_NOT_ENOUGH',
-        '재고가 부족하거나, 다른 사용자가 구매 중입니다.'
+        ERROR_CODES.CARD_COPY_NOT_ENOUGH(
+          '재고가 부족하거나, 다른 사용자가 구매 중입니다.'
+        )
       );
     }
     //가져온 saleItems에서 saleItem의 id, cardCopy의 id들을 추출하기
@@ -363,9 +348,9 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
     });
     if (updatedCards.count !== quantity) {
       throw new AppError(
-        400,
-        'CONCURRENCY_ERROR',
-        '다수 사용자 구매로 충돌이 발생하여 구매에 실패했습니다.'
+        ERROR_CODES.CONCURRENCY_ERROR(
+          '다수 사용자 구매로 충돌이 발생하여 구매에 실패했습니다.'
+        )
       );
     }
     await cardCopyRepository.updateCardCopiesOwnerId({
