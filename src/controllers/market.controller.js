@@ -1,3 +1,4 @@
+import { ERROR_CODES } from '../constants/errorCodes.js';
 import {
   getMarketCardsService,
   getMarketCardDetailService,
@@ -58,16 +59,14 @@ export const purchaseCards = async (req, res, next) => {
 
     //값 존재 여부 체크
     if (!quantity) {
-      //TODO: 에러 상수 넣기
-      throw new AppError(400, 'VALIDATION_ERROR', '수량이 존재하지 않습니다.');
+      throw new AppError(
+        ERROR_CODES.VALIDATION_ERROR('수량이 존재하지 않습니다.')
+      );
     }
     //값의 논리적 오류 체크
     if (quantity <= 0) {
-      //TODO: 에러 상수 넣기
       throw new AppError(
-        400,
-        'VALIDATION_ERROR',
-        '수량은 1 이상이어야 합니다.'
+        ERROR_CODES.VALIDATION_ERROR('수량은 1 이상이어야 합니다.')
       );
     }
 
