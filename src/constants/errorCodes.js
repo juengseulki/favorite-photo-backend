@@ -26,6 +26,18 @@ export const ERROR_CODES = {
     message: customMsg,
   }),
 
+  //----범용 에러메세지----
+  VALIDATION_ERROR: (customMsg = '필수 입력 값을 확인해주세요.') => ({
+    httpStatus: 400,
+    errorCode: 'VALIDATION_ERROR',
+    message: customMsg,
+  }),
+  INVALID_FORMAT: (customMsg = '올바르지 않은 형식입니다.') => ({
+    httpStatus: 400,
+    errorCode: 'INVALID_FORMAT',
+    message: customMsg,
+  }),
+
   // ---인증---
   EMAIL_REQUIRED: (customMsg = '이메일을 입력해 주세요.') => ({
     httpStatus: 400,
