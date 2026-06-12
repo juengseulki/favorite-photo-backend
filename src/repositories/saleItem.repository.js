@@ -1,3 +1,4 @@
+import { CardStatus } from '@prisma/client';
 import prisma from '../configs/prisma.js';
 
 const saleItemRepository = {
@@ -31,7 +32,7 @@ const saleItemRepository = {
         saleId: saleId,
         cardCopy: {
           ownerId: userId,
-          status: 'ON_SALE',
+          status: CardStatus.ON_SALE,
         },
       },
     });

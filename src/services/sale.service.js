@@ -4,6 +4,7 @@ import saleRepository from '../repositories/sale.repository.js';
 import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
+import { CardStatus, ExchangeStatus, SaleStatus } from '@prisma/client';
 import { ERROR_CODES } from '../constants/errorCodes.js';
 
 export const createSale = async ({
@@ -22,7 +23,7 @@ export const createSale = async ({
         quantity,
         photoCardId,
         userId,
-        status: 'OWNED',
+        status: CardStatus.OWNED,
         tx,
       });
       if (quantity > avilableCardCopies.length) {
@@ -66,7 +67,7 @@ export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
       throw new AppError(403, 'NOT_SALE_OWNER', '판매자만 수정할 수 있습니다.');
     }
     //판매 중인 판매글인지 검사
-    if (sale.status !== 'ON_SALE') {
+    if (sale.status !== SaleStatus.ON_SALE) {
       throw new AppError(ERROR_CODES.SALE_ALREADY_SOLD_OUT());
     }
     const {
@@ -102,7 +103,7 @@ export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
           //ㄴ(한 유저의)한 cardCopy로 여러 SaleItem이 생기는 것을 방지하기 위함.
           const usedSaleItems = await saleItemRepository.getSaleItems({
             saleId,
-            status: 'OWNED',
+            status: CardStatus.OWNED,
             userId,
             tx,
           });
@@ -122,8 +123,8 @@ export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
           await cardCopyRepository.switchCardsStatus({
             userId,
             cardIds: requiredCopyCardsId,
-            prevStatus: 'OWNED',
-            newStatus: 'ON_SALE',
+            prevStatus: CardStatus.OWNED,
+            newStatus: CardStatus.ON_SALE,
             tx,
           });
 
@@ -132,7 +133,7 @@ export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
             quantity: remainedCount,
             photoCardId,
             userId,
-            status: 'OWNED',
+            status: CardStatus.OWNED,
             tx,
           });
           if (remainedCount > remainCards.length) {
@@ -162,8 +163,8 @@ export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
           await cardCopyRepository.switchCardsStatus({
             userId,
             cardIds: cardCopyIds,
-            prevStatus: 'ON_SALE',
-            newStatus: 'OWNED',
+            prevStatus: CardStatus.ON_SALE,
+            newStatus: CardStatus.OWNED,
             tx,
           });
         }
@@ -183,7 +184,7 @@ export const cancelSale = async ({ saleId, userId }) => {
       throw new AppError(403, 'NOT_SALE_OWNER', '판매자만 취소할 수 있습니다.');
     }
     //Sale이 현재 ON_SALE인지 검증 (교환 완료 후에도 판매글이 종료되기에, 끝난 걸 다시 취소하는 것 방지)
-    if (sale.status !== 'ON_SALE') {
+    if (sale.status !== SaleStatus.ON_SALE) {
       throw new AppError(ERROR_CODES.SALE_ALREADY_SOLD_OUT());
     }
 
@@ -193,8 +194,8 @@ export const cancelSale = async ({ saleId, userId }) => {
     await cardCopyRepository.switchCardsStatus({
       userId,
       cardIds: cardCopyIds,
-      prevStatus: 'ON_SALE',
-      newStatus: 'OWNED',
+      prevStatus: CardStatus.ON_SALE,
+      newStatus: CardStatus.OWNED,
       tx,
     });
 
@@ -204,8 +205,8 @@ export const cancelSale = async ({ saleId, userId }) => {
     const exProIds = exPro.map((pro) => pro.id);
     await exchangeProposalRepository.setProposalsStatus({
       ids: exProIds,
-      prevStatus: 'PENDING',
-      newStatus: 'CANCELED',
+      prevStatus: ExchangeStatus.PENDING,
+      newStatus: ExchangeStatus.CANCELED,
       tx,
     });
 
@@ -226,7 +227,7 @@ const createSaleItemsAndCards = async (
     quantity,
     photoCardId,
     userId,
-    status: 'OWNED',
+    status: CardStatus.OWNED,
     tx,
   });
   const availableCardsIds = availableCards.map((card) => card.id);
@@ -244,7 +245,7 @@ const createSaleItemsAndCards = async (
   const onSaleCards = await cardCopyRepository.switchCardsStatus({
     userId,
     cardIds: availableCardsIds,
-    newStatus: 'ON_SALE',
+    newStatus: CardStatus.ON_SALE,
     tx,
   });
 
