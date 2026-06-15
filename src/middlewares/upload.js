@@ -19,10 +19,6 @@ const fileFilter = (req, file, cb) => {
   cb(null, true);
 };
 
-export const upload = multer({
-  dest: 'uploads/',
-  limits: {
-    fileSize: MAX_FILE_SIZE,
-  },
-  fileFilter,
-});
+const storage = multer.memoryStorage();
+
+export const upload = multer({ storage });
