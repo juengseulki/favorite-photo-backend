@@ -5,13 +5,15 @@ import AppError from '../utils/AppError.js';
 // 인증 필수 미들웨어 (Authorization: Bearer <accessToken> 헤더를 검증 후 req.user를 설정)
 export const authenticate = async (req, res, next) => {
   try {
-    const authHeader = req.headers.authorization;
+    const bearerToken = req.headers.authorization?.split(' ')[1];
 
-    if (!authHeader?.startsWith('Bearer ')) {
-      throw new AppError(401, 'NO_TOKEN', '인증 토큰이 없습니다.');
-    }
+    const queryToken = req.query.token;
 
-    const token = authHeader.slice(7);
+    const token = bearerToken || queryToken;
+
+    // if (!authHeader?.startsWith('Bearer ')) {
+    //   throw new AppError(401, 'NO_TOKEN', '인증 토큰이 없습니다.');
+    // }
 
     let payload;
     try {
@@ -35,14 +37,17 @@ export const authenticate = async (req, res, next) => {
 
 // 인증 선택 미들웨어 (토큰이 있으면 req.user를 설정하고, 없으면 그냥 통과)
 export const optionalAuthenticate = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const bearerToken = req.headers.authorization?.split(' ')[1];
 
-  if (!authHeader?.startsWith('Bearer ')) {
-    return next();
-  }
+  const queryToken = req.query.token;
+
+  const token = bearerToken || queryToken;
+
+  // if (!authHeader?.startsWith('Bearer ')) {
+  //   return next();
+  // }
 
   try {
-    const token = authHeader.slice(7);
     const payload = verifyAccessToken(token);
     const user = await findUserById(payload.userId);
 
