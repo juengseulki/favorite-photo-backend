@@ -26,23 +26,56 @@ export const getMarketCardsService = async ({
   grade,
   genre,
   sort = 'latest',
+  saleStatus,
 }) => {
   const take = Number(limit);
 
-  const where = {
+  const photoCardWhere = {
+    ...(keyword && {
+      name: {
+        contains: keyword,
+        mode: 'insensitive',
+      },
+    }),
+    ...(grade && { grade }),
+    ...(genre && { genre }),
+  };
+
+  let saleStatusWhere = {
     status: {
       in: [SaleStatus.ON_SALE, SaleStatus.SOLD_OUT],
     },
-    photoCard: {
-      ...(keyword && {
-        name: {
-          contains: keyword,
-          mode: 'insensitive',
+  };
+
+  if (saleStatus === 'onSale') {
+    saleStatusWhere = {
+      status: SaleStatus.ON_SALE,
+      saleItems: {
+        some: {
+          purchaseItem: null,
         },
-      }),
-      ...(grade && { grade }),
-      ...(genre && { genre }),
-    },
+      },
+    };
+  }
+
+  if (saleStatus === 'soldOut') {
+    saleStatusWhere = {
+      OR: [
+        { status: SaleStatus.SOLD_OUT },
+        {
+          saleItems: {
+            none: {
+              purchaseItem: null,
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  const where = {
+    ...saleStatusWhere,
+    photoCard: photoCardWhere,
   };
 
   let orderBy = [{ id: 'desc' }];
@@ -62,7 +95,7 @@ export const getMarketCardsService = async ({
 
       if (!parsedCursor) {
         throw new AppError(
-          ERROR_CODES.INVALID_CURSOR('올바르지 않은 cursor 값입니다.')
+          ERROR_CODES.INVALID_FORMAT('올바르지 않은 cursor 값입니다.')
         );
       }
 
@@ -86,7 +119,7 @@ export const getMarketCardsService = async ({
 
       if (!Number.isInteger(parsedCursor)) {
         throw new AppError(
-          ERROR_CODES.INVALID_CURSOR('올바르지 않은 cursor 값입니다.')
+          ERROR_CODES.INVALID_FORMAT('올바르지 않은 cursor 값입니다.')
         );
       }
 
@@ -97,6 +130,57 @@ export const getMarketCardsService = async ({
       };
     }
   }
+
+  const countSales = await prisma.sale.findMany({
+    where,
+    select: {
+      status: true,
+      photoCard: {
+        select: {
+          grade: true,
+          genre: true,
+        },
+      },
+      _count: {
+        select: {
+          saleItems: {
+            where: {
+              purchaseItem: null,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  const counts = countSales.reduce(
+    (acc, sale) => {
+      const grade = sale.photoCard.grade;
+      const genre = sale.photoCard.genre;
+      const remainingQuantity = sale._count.saleItems;
+      const isSoldOut =
+        sale.status === SaleStatus.SOLD_OUT || remainingQuantity === 0;
+
+      acc.grades[grade] = (acc.grades[grade] ?? 0) + 1;
+      acc.genres[genre] = (acc.genres[genre] ?? 0) + 1;
+
+      if (isSoldOut) {
+        acc.saleStatuses.soldOut += 1;
+      } else {
+        acc.saleStatuses.onSale += 1;
+      }
+
+      return acc;
+    },
+    {
+      grades: {},
+      genres: {},
+      saleStatuses: {
+        onSale: 0,
+        soldOut: 0,
+      },
+    }
+  );
 
   const sales = await prisma.sale.findMany({
     where: {
@@ -177,6 +261,7 @@ export const getMarketCardsService = async ({
     cards,
     nextCursor,
     hasNextPage,
+    counts,
   };
 };
 
