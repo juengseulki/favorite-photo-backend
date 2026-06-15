@@ -1,502 +1,429 @@
-﻿import prisma from '../configs/prisma.js';
+﻿import { CardStatus, SaleStatus } from '@prisma/client';
+
+import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ERROR_CODES } from '../constants/errorCodes.js';
+import purchaseRepository from '../repositories/purchase.repository.js';
+import purchaseItemRepository from '../repositories/purchaseItem.repository.js';
+import saleRepository from '../repositories/sale.repository.js';
+import saleItemRepository from '../repositories/saleItem.repository.js';
+import cardCopyRepository from '../repositories/cardCopy.repository.js';
 
-const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
+const parsePriceCursor = (cursor) => {
+  if (!cursor) return null;
 
-const ALLOWED_GENRES = [
-  'ALBUM',
-  'SPECIAL',
-  'FAN_SIGN',
-  'SEASON_GREETING',
-  'FAN_MEETING',
-  'CONCERT',
-  'MD',
-  'COLLAB',
-  'FANCLUB',
-  'ETC',
-];
+  const [price, id] = cursor.split('_').map(Number);
 
-function validatePageAndLimit(page, limit) {
-  if (!Number.isInteger(page) || page < 1) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('page는 1 이상의 정수여야 합니다.')
-    );
-  }
+  if (!Number.isInteger(price) || !Number.isInteger(id)) return null;
 
-  if (!Number.isInteger(limit) || limit < 1) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('limit은 1 이상의 정수여야 합니다.')
-    );
-  }
-}
+  return { price, id };
+};
 
-export const getMyCardsService = async ({
-  userId,
+export const getMarketCardsService = async ({
+  cursor,
+  limit = 15,
   keyword,
   grade,
   genre,
-  page,
-  limit,
-  sort,
+  sort = 'latest',
 }) => {
-  validatePageAndLimit(page, limit);
-
-  const skip = (page - 1) * limit;
+  const take = Number(limit);
 
   const where = {
-    ...(keyword && {
-      name: {
-        contains: keyword,
-        mode: 'insensitive',
-      },
-    }),
-    ...(grade && { grade }),
-    ...(genre && { genre }),
-    cardCopies: {
-      some: {
-        ownerId: userId,
-      },
+    status: {
+      in: [SaleStatus.ON_SALE, SaleStatus.SOLD_OUT],
+    },
+    photoCard: {
+      ...(keyword && {
+        name: {
+          contains: keyword,
+          mode: 'insensitive',
+        },
+      }),
+      ...(grade && { grade }),
+      ...(genre && { genre }),
     },
   };
 
-  const countWhere = {
-    cardCopies: {
-      some: {
-        ownerId: userId,
-      },
-    },
-  };
+  let orderBy = [{ id: 'desc' }];
+  let cursorWhere = {};
 
-  let orderBy;
-
-  switch (sort) {
-    case 'oldest':
-      orderBy = { createdAt: 'asc' };
-      break;
-
-    case 'priceAsc':
-      orderBy = { initialPrice: 'asc' };
-      break;
-
-    case 'priceDesc':
-      orderBy = { initialPrice: 'desc' };
-      break;
-
-    case 'latest':
-    default:
-      orderBy = { createdAt: 'desc' };
-      break;
+  if (sort === 'priceAsc') {
+    orderBy = [{ price: 'asc' }, { id: 'desc' }];
   }
 
-  const [cards, totalCount, allCardsForCount] = await Promise.all([
-    prisma.photoCard.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy,
-      select: {
-        id: true,
-        name: true,
-        imageUrl: true,
-        grade: true,
-        genre: true,
-        initialPrice: true,
-        createdAt: true,
-        creator: {
-          select: {
-            nickname: true,
+  if (sort === 'priceDesc') {
+    orderBy = [{ price: 'desc' }, { id: 'desc' }];
+  }
+
+  if (cursor) {
+    if (sort === 'priceAsc' || sort === 'priceDesc') {
+      const parsedCursor = parsePriceCursor(cursor);
+
+      if (!parsedCursor) {
+        throw new AppError(
+          ERROR_CODES.INVALID_CURSOR('올바르지 않은 cursor 값입니다.')
+        );
+      }
+
+      cursorWhere = {
+        OR: [
+          {
+            price: {
+              [sort === 'priceAsc' ? 'gt' : 'lt']: parsedCursor.price,
+            },
           },
+          {
+            price: parsedCursor.price,
+            id: {
+              lt: parsedCursor.id,
+            },
+          },
+        ],
+      };
+    } else {
+      const parsedCursor = Number(cursor);
+
+      if (!Number.isInteger(parsedCursor)) {
+        throw new AppError(
+          ERROR_CODES.INVALID_CURSOR('올바르지 않은 cursor 값입니다.')
+        );
+      }
+
+      cursorWhere = {
+        id: {
+          lt: parsedCursor,
         },
-        cardCopies: {
-          where: {
-            ownerId: userId,
-          },
-          select: {
-            id: true,
-            status: true,
+      };
+    }
+  }
+
+  const sales = await prisma.sale.findMany({
+    where: {
+      ...where,
+      ...cursorWhere,
+    },
+    take: take + 1,
+    orderBy,
+    select: {
+      id: true,
+      price: true,
+      status: true,
+      createdAt: true,
+      seller: {
+        select: {
+          nickname: true,
+        },
+      },
+      photoCard: {
+        select: {
+          id: true,
+          name: true,
+          imageUrl: true,
+          grade: true,
+          genre: true,
+          totalQuantity: true,
+          creator: {
+            select: {
+              nickname: true,
+            },
           },
         },
       },
-    }),
-
-    prisma.photoCard.count({ where }),
-
-    prisma.photoCard.findMany({
-      where: countWhere,
-      select: {
-        grade: true,
-        cardCopies: {
-          where: {
-            ownerId: userId,
-          },
-          select: {
-            id: true,
+      _count: {
+        select: {
+          saleItems: {
+            where: {
+              purchaseItem: null,
+            },
           },
         },
       },
-    }),
-  ]);
-
-  const counts = {};
-
-  allCardsForCount.forEach((card) => {
-    counts[card.grade] = (counts[card.grade] || 0) + card.cardCopies.length;
+    },
   });
 
-  const gradeCount = GRADES.map((grade) => ({
-    grade,
-    count: counts[grade] || 0,
-  }));
+  const hasNextPage = sales.length > take;
+  const currentSales = hasNextPage ? sales.slice(0, take) : sales;
+  const lastSale = currentSales[currentSales.length - 1];
 
-  const totalCopyCount = Object.values(counts).reduce(
-    (sum, count) => sum + count,
-    0
-  );
+  const nextCursor = hasNextPage
+    ? sort === 'priceAsc' || sort === 'priceDesc'
+      ? `${lastSale.price}_${lastSale.id}`
+      : String(lastSale.id)
+    : null;
 
-  const formattedCards = cards.map((card) => ({
-    id: card.id,
-    photoCardId: card.id,
-    cardCopyId: card.cardCopies[0]?.id ?? null,
-    name: card.name,
-    imageUrl: card.imageUrl,
-    grade: card.grade,
-    genre: card.genre,
-    creatorNickname: card.creator.nickname,
-    initialPrice: card.initialPrice,
-    price: card.initialPrice,
-    createdAt: card.createdAt,
-    quantity: card.cardCopies.length,
-    count: card.cardCopies.length,
-  }));
-
-  const totalPages = Math.ceil(totalCount / limit);
-  const hasNextPage = page < totalPages;
-
-  return {
-    items: formattedCards,
-    gradeCount,
-    meta: {
-      page,
-      limit,
-      totalCount,
-      totalCopyCount,
-      totalPages,
-      hasNextPage,
-    },
-  };
-};
-
-export const postMyCardsService = async ({
-  userId,
-  name,
-  description,
-  imageUrl,
-  grade,
-  genre,
-  initialPrice,
-  totalQuantity,
-}) => {
-  if (!name) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('카드 이름을 입력해 주세요.')
-    );
-  }
-
-  if (!imageUrl) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('이미지 URL을 입력해 주세요.')
-    );
-  }
-
-  if (!description) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('카드 설명을 입력해 주세요.')
-    );
-  }
-
-  if (!grade) {
-    throw new AppError(ERROR_CODES.VALIDATION_ERROR('등급을 입력해 주세요.'));
-  }
-
-  if (!GRADES.includes(grade)) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('유효하지 않은 등급입니다.')
-    );
-  }
-
-  if (!genre) {
-    throw new AppError(ERROR_CODES.VALIDATION_ERROR('장르를 입력해 주세요.'));
-  }
-
-  if (!ALLOWED_GENRES.includes(genre)) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('유효하지 않은 장르입니다.')
-    );
-  }
-
-  if (!Number.isInteger(totalQuantity) || totalQuantity <= 0) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('발행 수량은 1개 이상이어야 합니다.')
-    );
-  }
-
-  if (totalQuantity > 10) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('카드는 최대 10장까지 발행할 수 있습니다.')
-    );
-  }
-
-  if (!Number.isInteger(initialPrice) || initialPrice <= 0) {
-    throw new AppError(
-      ERROR_CODES.VALIDATION_ERROR('초기 가격은 1 이상이어야 합니다.')
-    );
-  }
-
-  const result = await prisma.$transaction(async (tx) => {
-    const photoCard = await tx.photoCard.create({
-      data: {
-        name,
-        description,
-        imageUrl,
-        grade,
-        genre,
-        totalQuantity,
-        initialPrice,
-        creatorId: userId,
-      },
-    });
-
-    const cardCopies = Array.from({ length: totalQuantity }, (_, index) => ({
-      photoCardId: photoCard.id,
-      ownerId: userId,
-      status: 'OWNED',
-      serialNumber: `CARD-${photoCard.id}-${String(index + 1).padStart(3, '0')}`,
-    }));
-
-    await tx.cardCopy.createMany({
-      data: cardCopies,
-    });
-
-    return photoCard;
-  });
-
-  return {
-    id: result.id,
-    name: result.name,
-    description: result.description,
-    imageUrl: result.imageUrl,
-    grade: result.grade,
-    genre: result.genre,
-    totalQuantity: result.totalQuantity,
-    initialPrice: result.initialPrice,
-    creatorId: result.creatorId,
-    createdAt: result.createdAt,
-  };
-};
-
-export const getMyTradesService = async ({
-  userId,
-  keyword,
-  grade,
-  genre,
-  tradeType,
-  isSoldOut,
-  page,
-  limit,
-  sort,
-}) => {
-  validatePageAndLimit(page, limit);
-
-  const skip = (page - 1) * limit;
-
-  let orderBy;
-
-  switch (sort) {
-    case 'oldest':
-      orderBy = { createdAt: 'asc' };
-      break;
-
-    case 'priceAsc':
-      orderBy = { price: 'asc' };
-      break;
-
-    case 'priceDesc':
-      orderBy = { price: 'desc' };
-      break;
-
-    case 'latest':
-    default:
-      orderBy = { createdAt: 'desc' };
-      break;
-  }
-
-  const photoCardWhere = {
-    ...(keyword && {
-      name: {
-        contains: keyword,
-        mode: 'insensitive',
-      },
-    }),
-    ...(grade && { grade }),
-    ...(genre && { genre }),
-  };
-
-  const parsedIsSoldOut =
-    isSoldOut === undefined
-      ? undefined
-      : isSoldOut === 'true' || isSoldOut === true;
-
-  const saleStatusWhere =
-    parsedIsSoldOut === undefined
-      ? { in: ['ON_SALE', 'SOLD_OUT', 'CANCELED'] }
-      : parsedIsSoldOut
-        ? 'SOLD_OUT'
-        : 'ON_SALE';
-
-  let sales = [];
-  let exchangeProposals = [];
-
-  if (!tradeType || tradeType === 'SALE') {
-    sales = await prisma.sale.findMany({
-      where: {
-        sellerId: userId,
-        status: saleStatusWhere,
-        photoCard: photoCardWhere,
-      },
-      include: {
-        photoCard: {
-          include: {
-            creator: {
-              select: {
-                nickname: true,
-              },
-            },
-          },
-        },
-        saleItems: {
-          include: {
-            purchaseItem: true,
-          },
-        },
-      },
-      orderBy,
-      skip,
-      take: limit,
-    });
-  }
-
-  if (!tradeType || tradeType === 'EXCHANGE') {
-    exchangeProposals = await prisma.exchangeProposal.findMany({
-      where: {
-        proposerId: userId,
-        status: 'PENDING',
-        offeredCardCopy: {
-          photoCard: photoCardWhere,
-        },
-      },
-      include: {
-        offeredCardCopy: {
-          include: {
-            photoCard: {
-              include: {
-                creator: {
-                  select: {
-                    nickname: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        sale: {
-          select: {
-            id: true,
-            price: true,
-            status: true,
-            photoCard: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy,
-      skip,
-      take: limit,
-    });
-  }
-
-  const formattedSales = sales.map((sale) => {
-    const activeSaleItems = sale.saleItems.filter((item) => !item.purchaseItem);
+  const cards = currentSales.map((sale) => {
+    const remainingQuantity = sale._count.saleItems;
 
     return {
-      type: 'SALE',
       saleId: sale.id,
-      photoCardId: sale.photoCardId,
+      cardId: sale.photoCard.id,
       name: sale.photoCard.name,
       imageUrl: sale.photoCard.imageUrl,
       grade: sale.photoCard.grade,
       genre: sale.photoCard.genre,
-      creatorNickname: sale.photoCard.creator.nickname,
-      quantity: activeSaleItems.length,
-      count: activeSaleItems.length,
-      status: sale.status,
-      statusLabel: sale.status === 'SOLD_OUT' ? '판매 완료' : '판매 중',
       price: sale.price,
+      status: sale.status,
+      isSoldOut: sale.status === SaleStatus.SOLD_OUT || remainingQuantity === 0,
+      remainingQuantity,
+      totalQuantity: sale.photoCard.totalQuantity,
+      sellerNickname: sale.seller.nickname,
+      creatorNickname: sale.photoCard.creator.nickname,
       createdAt: sale.createdAt,
     };
   });
 
-  const formattedExchanges = exchangeProposals.map((proposal) => {
-    const photoCard = proposal.offeredCardCopy.photoCard;
+  return {
+    cards,
+    nextCursor,
+    hasNextPage,
+  };
+};
 
-    return {
-      type: 'EXCHANGE',
-      proposalId: proposal.id,
-      saleId: proposal.saleId,
-      photoCardId: photoCard.id,
-      cardCopyId: proposal.offeredCardCopyId,
-      name: photoCard.name,
-      imageUrl: photoCard.imageUrl,
-      grade: photoCard.grade,
-      genre: photoCard.genre,
-      creatorNickname: photoCard.creator.nickname,
-      quantity: 1,
-      count: 1,
-      status: proposal.status,
-      statusLabel: '교환 대기',
-      price: proposal.sale.price,
-      targetCardName: proposal.sale.photoCard.name,
-      createdAt: proposal.createdAt,
-    };
+export const getMarketCardDetailService = async (saleId) => {
+  const parsedSaleId = Number(saleId);
+
+  if (!Number.isInteger(parsedSaleId) || parsedSaleId <= 0) {
+    throw new AppError(
+      ERROR_CODES.VALIDATION_ERROR('saleId가 올바르지 않습니다.')
+    );
+  }
+
+  const sale = await prisma.sale.findUnique({
+    where: {
+      id: parsedSaleId,
+    },
+    select: {
+      id: true,
+      price: true,
+      status: true,
+      createdAt: true,
+      exchangeGrade: true,
+      exchangeGenre: true,
+      exchangeDescription: true,
+      seller: {
+        select: {
+          nickname: true,
+        },
+      },
+      photoCard: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          imageUrl: true,
+          grade: true,
+          genre: true,
+          totalQuantity: true,
+          creator: {
+            select: {
+              nickname: true,
+            },
+          },
+        },
+      },
+      _count: {
+        select: {
+          saleItems: {
+            where: {
+              purchaseItem: null,
+            },
+          },
+        },
+      },
+    },
   });
 
-  const items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
-    if (sort === 'oldest') {
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    }
+  if (!sale) {
+    throw new AppError(ERROR_CODES.SALE_NOT_FOUND());
+  }
 
-    if (sort === 'priceAsc') {
-      return a.price - b.price;
-    }
-
-    if (sort === 'priceDesc') {
-      return b.price - a.price;
-    }
-
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
+  const remainingQuantity = sale._count.saleItems;
 
   return {
-    items,
-    meta: {
-      page,
-      limit,
-      totalCount: items.length,
-      totalPages: Math.ceil(items.length / limit),
-      hasNextPage: false,
-    },
+    saleId: sale.id,
+    cardId: sale.photoCard.id,
+    name: sale.photoCard.name,
+    description: sale.photoCard.description,
+    imageUrl: sale.photoCard.imageUrl,
+    grade: sale.photoCard.grade,
+    genre: sale.photoCard.genre,
+    price: sale.price,
+    status: sale.status,
+    isSoldOut: sale.status === SaleStatus.SOLD_OUT || remainingQuantity === 0,
+    remainingQuantity,
+    totalQuantity: sale.photoCard.totalQuantity,
+    sellerNickname: sale.seller.nickname,
+    creatorNickname: sale.photoCard.creator.nickname,
+    exchangeGrade: sale.exchangeGrade,
+    exchangeGenre: sale.exchangeGenre,
+    exchangeDescription: sale.exchangeDescription,
+    createdAt: sale.createdAt,
   };
+};
+
+export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
+  const parsedSaleId = Number(saleId);
+  const parsedQuantity = Number(quantity);
+
+  if (!Number.isInteger(parsedSaleId) || parsedSaleId <= 0) {
+    throw new AppError(
+      ERROR_CODES.VALIDATION_ERROR('saleId가 올바르지 않습니다.')
+    );
+  }
+
+  if (!Number.isInteger(parsedQuantity) || parsedQuantity <= 0) {
+    throw new AppError(
+      ERROR_CODES.VALIDATION_ERROR('수량은 1 이상이어야 합니다.')
+    );
+  }
+
+  return await prisma.$transaction(async (tx) => {
+    const sale = await saleRepository.getSale({
+      saleId: parsedSaleId,
+      tx,
+    });
+
+    if (!sale) {
+      throw new AppError(ERROR_CODES.SALE_NOT_FOUND());
+    }
+
+    if (sale.status !== SaleStatus.ON_SALE) {
+      throw new AppError(ERROR_CODES.SALE_NOT_AVAILABLE());
+    }
+
+    if (buyerId === sale.sellerId) {
+      throw new AppError(ERROR_CODES.CANNOT_BUY_OWN_CARD());
+    }
+
+    const totalPrice = parsedQuantity * sale.price;
+
+    const buyerPoint = await tx.point.findUnique({
+      where: {
+        userId: buyerId,
+      },
+      select: {
+        balance: true,
+      },
+    });
+
+    if (!buyerPoint || buyerPoint.balance < totalPrice) {
+      throw new AppError(ERROR_CODES.INSUFFICIENT_POINTS());
+    }
+
+    const saleItems = await saleItemRepository.getSaleItems({
+      saleId: parsedSaleId,
+      quantity: parsedQuantity,
+      status: CardStatus.ON_SALE,
+      userId: sale.sellerId,
+      tx,
+    });
+
+    if (saleItems.length < parsedQuantity) {
+      throw new AppError(
+        ERROR_CODES.CARD_COPY_NOT_ENOUGH(
+          '재고가 부족하거나, 다른 사용자가 구매 중입니다.'
+        )
+      );
+    }
+
+    const saleItemIds = saleItems.map((item) => item.id);
+    const cardCopyIds = saleItems.map((item) => item.cardCopyId);
+
+    const updatedCards = await cardCopyRepository.switchCardsStatus({
+      userId: sale.sellerId,
+      cardIds: cardCopyIds,
+      prevStatus: CardStatus.ON_SALE,
+      newStatus: CardStatus.OWNED,
+      tx,
+    });
+
+    if (updatedCards.count !== parsedQuantity) {
+      throw new AppError(
+        ERROR_CODES.CONCURRENCY_ERROR(
+          '다수 사용자 구매로 충돌이 발생하여 구매에 실패했습니다.'
+        )
+      );
+    }
+
+    await cardCopyRepository.updateCardCopiesOwnerId({
+      cardsIds: cardCopyIds,
+      ownerId: buyerId,
+      tx,
+    });
+
+    const purchase = await purchaseRepository.createPurchase({
+      buyerId,
+      saleId: parsedSaleId,
+      quantity: parsedQuantity,
+      totalPrice,
+      tx,
+    });
+
+    await purchaseItemRepository.createPurchaseItems({
+      purchaseId: purchase.id,
+      saleItemsIds: saleItemIds,
+      tx,
+    });
+
+    const remainedQuantity =
+      await saleItemRepository.countActiveSaleItemsForSale({
+        saleId: parsedSaleId,
+        userId: sale.sellerId,
+        tx,
+      });
+
+    if (remainedQuantity === 0) {
+      await saleRepository.setStatus({
+        saleId: parsedSaleId,
+        status: SaleStatus.SOLD_OUT,
+        tx,
+      });
+    }
+
+    await tx.point.update({
+      where: {
+        userId: buyerId,
+      },
+      data: {
+        balance: {
+          decrement: totalPrice,
+        },
+      },
+    });
+
+    await tx.pointHistory.create({
+      data: {
+        userId: buyerId,
+        amount: -totalPrice,
+        reason: 'PURCHASE',
+        description: '포토카드 구매',
+      },
+    });
+
+    await tx.point.update({
+      where: {
+        userId: sale.sellerId,
+      },
+      data: {
+        balance: {
+          increment: totalPrice,
+        },
+      },
+    });
+
+    await tx.pointHistory.create({
+      data: {
+        userId: sale.sellerId,
+        amount: totalPrice,
+        reason: 'SALE',
+        description: '포토카드 판매',
+      },
+    });
+
+    return await purchaseRepository.getPurchase({
+      id: purchase.id,
+      tx,
+    });
+  });
 };
