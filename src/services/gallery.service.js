@@ -3,6 +3,19 @@ import AppError from '../utils/AppError.js';
 
 const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
 
+const ALLOWED_GENRES = [
+  'ALBUM',
+  'SPECIAL',
+  'FAN_SIGN',
+  'SEASON_GREETING',
+  'FAN_MEETING',
+  'CONCERT',
+  'MD',
+  'COLLAB',
+  'FANCLUB',
+  'ETC',
+];
+
 export const getMyCardsService = async ({
   userId,
   keyword,
@@ -14,7 +27,6 @@ export const getMyCardsService = async ({
 }) => {
   const skip = (page - 1) * limit;
 
-  //필터링
   const where = {
     ...(keyword && {
       name: {
@@ -24,7 +36,6 @@ export const getMyCardsService = async ({
     }),
     ...(grade && { grade }),
     ...(genre && { genre }),
-
     cardCopies: {
       some: {
         ownerId: userId,
@@ -32,7 +43,6 @@ export const getMyCardsService = async ({
     },
   };
 
-  //등급 필터링(userId 조회)
   const countWhere = {
     cardCopies: {
       some: {
@@ -41,32 +51,24 @@ export const getMyCardsService = async ({
     },
   };
 
-  //정렬
   let orderBy;
 
   switch (sort) {
     case 'oldest':
       orderBy = { createdAt: 'asc' };
       break;
-
-    case 'latest':
-      orderBy = { createdAt: 'desc' };
-      break;
-
     case 'priceAsc':
       orderBy = { initialPrice: 'asc' };
       break;
-
     case 'priceDesc':
       orderBy = { initialPrice: 'desc' };
       break;
-
+    case 'latest':
     default:
       orderBy = { createdAt: 'desc' };
       break;
   }
 
-  //DB 조회
   const [cards, totalCount, allCardsForCount] = await Promise.all([
     prisma.photoCard.findMany({
       where,
@@ -92,6 +94,7 @@ export const getMyCardsService = async ({
           },
           select: {
             id: true,
+            status: true,
           },
         },
       },
@@ -121,13 +124,11 @@ export const getMyCardsService = async ({
     counts[card.grade] = (counts[card.grade] || 0) + card.cardCopies.length;
   });
 
-  // 등급별 보유 수량
   const gradeCount = GRADES.map((grade) => ({
     grade,
     count: counts[grade] || 0,
   }));
 
-  // 총 보유 수량
   const totalCopyCount = Object.values(counts).reduce(
     (sum, count) => sum + count,
     0
@@ -135,14 +136,18 @@ export const getMyCardsService = async ({
 
   const formattedCards = cards.map((card) => ({
     id: card.id,
+    photoCardId: card.id,
+    cardCopyId: card.cardCopies[0]?.id ?? null,
     name: card.name,
     imageUrl: card.imageUrl,
     grade: card.grade,
     genre: card.genre,
     creatorNickname: card.creator.nickname,
     initialPrice: card.initialPrice,
+    price: card.initialPrice,
     createdAt: card.createdAt,
     quantity: card.cardCopies.length,
+    count: card.cardCopies.length,
   }));
 
   const totalPages = Math.ceil(totalCount / limit);
@@ -184,7 +189,7 @@ export const postMyCardsService = async ({
     throw new AppError(400, 'MISSING_GRADE', '등급을 입력해 주세요.');
   }
 
-  if (!['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'].includes(grade)) {
+  if (!GRADES.includes(grade)) {
     throw new AppError(400, 'INVALID_GRADE', '유효하지 않은 등급입니다.');
   }
 
@@ -192,23 +197,19 @@ export const postMyCardsService = async ({
     throw new AppError(400, 'MISSING_GENRE', '장르를 입력해 주세요.');
   }
 
-  if (
-    !['ALBUM', 'SPECIAL', 'FAN_SIGN', 'SEASON_GREETING', 'CONCERT'].includes(
-      genre
-    )
-  ) {
+  if (!ALLOWED_GENRES.includes(genre)) {
     throw new AppError(400, 'INVALID_GENRE', '유효하지 않은 장르입니다.');
   }
 
-  if (!totalQuantity) {
+  if (!description) {
     throw new AppError(
       400,
-      'MISSING_TOTAL_QUANTITY',
-      '발행 수량을 입력해 주세요.'
+      'MISSING_DESCRIPTION',
+      '카드 설명을 입력해 주세요.'
     );
   }
 
-  if (totalQuantity <= 0) {
+  if (!Number.isInteger(totalQuantity) || totalQuantity <= 0) {
     throw new AppError(
       400,
       'INVALID_TOTAL_QUANTITY',
@@ -224,15 +225,7 @@ export const postMyCardsService = async ({
     );
   }
 
-  if (!initialPrice) {
-    throw new AppError(
-      400,
-      'MISSING_INITIAL_PRICE',
-      '초기 가격을 입력해 주세요.'
-    );
-  }
-
-  if (initialPrice <= 0) {
+  if (!Number.isInteger(initialPrice) || initialPrice <= 0) {
     throw new AppError(
       400,
       'INVALID_INITIAL_PRICE',
@@ -254,15 +247,12 @@ export const postMyCardsService = async ({
       },
     });
 
-    const cardCopies = [];
-
-    for (let i = 1; i <= totalQuantity; i++) {
-      cardCopies.push({
-        photoCardId: photoCard.id,
-        ownerId: userId,
-        serialNumber: `CARD-${photoCard.id}-${String(i).padStart(3, '0')}`,
-      });
-    }
+    const cardCopies = Array.from({ length: totalQuantity }, (_, index) => ({
+      photoCardId: photoCard.id,
+      ownerId: userId,
+      status: 'OWNED',
+      serialNumber: `CARD-${photoCard.id}-${String(index + 1).padStart(3, '0')}`,
+    }));
 
     await tx.cardCopy.createMany({
       data: cardCopies,
@@ -296,113 +286,192 @@ export const getMyTradesService = async ({
   limit,
   sort,
 }) => {
-  //페이지네이션에 이용할 skip
   const skip = (page - 1) * limit;
 
-  //정렬
   let orderBy;
+
   switch (sort) {
     case 'oldest':
       orderBy = { createdAt: 'asc' };
       break;
-
-    case 'latest':
-      orderBy = { createdAt: 'desc' };
-      break;
-
     case 'priceAsc':
-      orderBy = { initialPrice: 'asc' };
+      orderBy = { price: 'asc' };
       break;
-
     case 'priceDesc':
-      orderBy = { initialPrice: 'desc' };
+      orderBy = { price: 'desc' };
       break;
-
+    case 'latest':
     default:
       orderBy = { createdAt: 'desc' };
       break;
   }
 
-  //포토카드 전체 Where절 조건
   const photoCardWhere = {
-    ...(keyword && { name: { contains: keyword, mode: 'insensitive' } }),
-    ...(grade && grade),
-    ...(genre && genre),
+    ...(keyword && {
+      name: {
+        contains: keyword,
+        mode: 'insensitive',
+      },
+    }),
+    ...(grade && { grade }),
+    ...(genre && { genre }),
   };
 
-  //----판매 목록 가져오기----
-  //soldOut값에 따른 where절 조건
-  const isSoldOutWhere =
+  const parsedIsSoldOut =
     isSoldOut === undefined
-      ? { in: ['ON_SALE', 'SOLD_OUT'] }
-      : isSoldOut
+      ? undefined
+      : isSoldOut === 'true' || isSoldOut === true;
+
+  const saleStatusWhere =
+    parsedIsSoldOut === undefined
+      ? { in: ['ON_SALE', 'SOLD_OUT', 'CANCELED'] }
+      : parsedIsSoldOut
         ? 'SOLD_OUT'
         : 'ON_SALE';
 
-  //sale 가져오기
-  const sales = [];
-  //판매방법이 선택되지 않았거나, 판매 방법이 "SALE"이라면, SALE을 가져온다.
+  let sales = [];
+  let exchangeProposals = [];
+
   if (!tradeType || tradeType === 'SALE') {
     sales = await prisma.sale.findMany({
       where: {
         sellerId: userId,
-        status: isSoldOutWhere, //매진여부에 따라 가져온다.
+        status: saleStatusWhere,
         photoCard: photoCardWhere,
       },
       include: {
-        //포토카드 정보 가져오기(실제로 표시할 내용이 대부분 담긴 것)
         photoCard: {
-          //포토카드에 연결된 유저의 이름을 알아야 하므로
-          creator: { select: { nickname: true } },
+          include: {
+            creator: {
+              select: {
+                nickname: true,
+              },
+            },
+          },
         },
-        //수량을 세기 위함.
-        saleItems: true,
+        saleItems: {
+          include: {
+            purchaseItem: true,
+          },
+        },
       },
       orderBy,
+      skip,
+      take: limit,
     });
   }
 
-  //----교환 목록 가져오기----
-  let exchangeProposals = [];
-  //판매 방법이 선택되지 않았거나, 판매 방법이 "EXCHANGE"라면, EXCHANGE를 가져온다.
   if (!tradeType || tradeType === 'EXCHANGE') {
     exchangeProposals = await prisma.exchangeProposal.findMany({
       where: {
         proposerId: userId,
-        status: 'PENDING', //교환 대기 중인 카드만
+        status: 'PENDING',
         offeredCardCopy: {
           photoCard: photoCardWhere,
         },
       },
       include: {
-        photoCard: {
-          //포토카드 정보 가져오기(실제로 표시할 내용이 대부분 담긴 것)
+        offeredCardCopy: {
           include: {
-            //포토카드에 연결된 유저의 이름을 알아야 하므로
-            creator: { select: { nickname: true } },
+            photoCard: {
+              include: {
+                creator: {
+                  select: {
+                    nickname: true,
+                  },
+                },
+              },
+            },
           },
         },
-        //가격 정보를 가져오기 위함
-        sale: { select: { price: true } },
+        sale: {
+          select: {
+            id: true,
+            price: true,
+            status: true,
+            photoCard: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
       },
       orderBy,
+      skip,
+      take: limit,
     });
   }
 
-  //----가져온 정보를, 예쁘게 넘겨주 수 있도록 포맷팅----
-  const formattedSales = sales.map((sale) => ({
-    saleId: sale.id,
-    photoCardId: sale.photoCardId,
-    name: sale.photoCard.name,
-    imageUrl: sale.photoCard.imageUrl,
-    grade: sale.photoCard.grade,
-    genre: sale.photoCard.genre,
-    creatorNickname: sale.photoCard.creator.nickname,
-    quantity: sale.saleItems.length,
-    status: 'ON_SALE',
-    statusLabel: '판매 중',
-    price: sale.price,
-    createdAt: sale.createdAt,
-  }));
-  const formattedExchanges = exchangeProposals.map((ex) => {});
+  const formattedSales = sales.map((sale) => {
+    const activeSaleItems = sale.saleItems.filter((item) => !item.purchaseItem);
+
+    return {
+      type: 'SALE',
+      saleId: sale.id,
+      photoCardId: sale.photoCardId,
+      name: sale.photoCard.name,
+      imageUrl: sale.photoCard.imageUrl,
+      grade: sale.photoCard.grade,
+      genre: sale.photoCard.genre,
+      creatorNickname: sale.photoCard.creator.nickname,
+      quantity: activeSaleItems.length,
+      count: activeSaleItems.length,
+      status: sale.status,
+      statusLabel: sale.status === 'SOLD_OUT' ? '판매 완료' : '판매 중',
+      price: sale.price,
+      createdAt: sale.createdAt,
+    };
+  });
+
+  const formattedExchanges = exchangeProposals.map((proposal) => {
+    const photoCard = proposal.offeredCardCopy.photoCard;
+
+    return {
+      type: 'EXCHANGE',
+      proposalId: proposal.id,
+      saleId: proposal.saleId,
+      photoCardId: photoCard.id,
+      cardCopyId: proposal.offeredCardCopyId,
+      name: photoCard.name,
+      imageUrl: photoCard.imageUrl,
+      grade: photoCard.grade,
+      genre: photoCard.genre,
+      creatorNickname: photoCard.creator.nickname,
+      quantity: 1,
+      count: 1,
+      status: proposal.status,
+      statusLabel: '교환 대기',
+      price: proposal.sale.price,
+      targetCardName: proposal.sale.photoCard.name,
+      createdAt: proposal.createdAt,
+    };
+  });
+
+  const items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
+    if (sort === 'oldest') {
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    }
+
+    if (sort === 'priceAsc') {
+      return a.price - b.price;
+    }
+
+    if (sort === 'priceDesc') {
+      return b.price - a.price;
+    }
+
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  return {
+    items,
+    meta: {
+      page,
+      limit,
+      totalCount: items.length,
+      totalPages: Math.ceil(items.length / limit),
+      hasNextPage: false,
+    },
+  };
 };
