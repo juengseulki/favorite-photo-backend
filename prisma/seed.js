@@ -34,17 +34,14 @@ async function readJson(fileName) {
 
 async function resetDatabase() {
   await prisma.notification.deleteMany();
-  await prisma.randomBoxHistory?.deleteMany?.();
-  await prisma.pointHistory.deleteMany();
-  await prisma.purchaseItem?.deleteMany?.();
-  await prisma.purchase.deleteMany();
   await prisma.exchangeProposal.deleteMany();
+  await prisma.purchase.deleteMany();
   await prisma.saleItem.deleteMany();
   await prisma.sale.deleteMany();
   await prisma.cardCopy.deleteMany();
   await prisma.photoCard.deleteMany();
   await prisma.refreshToken.deleteMany();
-  await prisma.oAuthAccount?.deleteMany?.();
+  await prisma.pointHistory.deleteMany();
   await prisma.point.deleteMany();
   await prisma.user.deleteMany();
 }
