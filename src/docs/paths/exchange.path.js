@@ -102,4 +102,28 @@ export const exchangePaths = {
       },
     },
   },
+
+  '/exchange-proposals/{id}/cancel': {
+    patch: {
+      tags: ['Exchange'],
+      summary: '교환 제안 취소',
+
+      security: [{ bearerAuth: [] }],
+
+      parameters: [
+        {
+          name: 'id',
+          in: 'path',
+          required: true,
+          schema: { type: 'number' },
+        },
+      ],
+
+      responses: {
+        200: {
+          description: '취소 성공',
+        },
+      },
+    },
+  },
 };

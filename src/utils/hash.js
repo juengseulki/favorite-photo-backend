@@ -3,11 +3,26 @@ import crypto from 'crypto';
 
 const SALT_ROUNDS = 10;
 
-export const hashPassword = (password) => bcrypt.hash(password, SALT_ROUNDS);
+export const hashPassword = async (password) => {
+  if (!password) {
+    throw new Error('Password is required');
+  }
 
-export const verifyPassword = (password, hash) =>
-  bcrypt.compare(password, hash);
+  return bcrypt.hash(password, SALT_ROUNDS);
+};
 
-// DB에서 refreshToken을 tokenHash로 조회할 수 있어야 하므로 SHA-256 사용
-export const hashToken = (token) =>
-  crypto.createHash('sha256').update(token).digest('hex');
+export const verifyPassword = async (password, hash) => {
+  if (!password || !hash) {
+    return false;
+  }
+
+  return bcrypt.compare(password, hash);
+};
+
+export const hashToken = (token) => {
+  if (!token) {
+    throw new Error('Token is required');
+  }
+
+  return crypto.createHash('sha256').update(token).digest('hex');
+};

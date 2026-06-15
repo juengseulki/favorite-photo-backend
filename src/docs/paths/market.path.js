@@ -103,7 +103,7 @@ export const marketPaths = {
       },
 
       responses: {
-        201: {
+        200: {
           description: '구매 성공',
         },
       },

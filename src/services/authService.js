@@ -6,6 +6,7 @@ import {
   verifyRefreshToken,
 } from '../utils/jwt.js';
 import AppError from '../utils/AppError.js';
+import { ERROR_CODES } from '../constants/errorCodes.js';
 
 const REFRESH_EXPIRES_DAYS = 7;
 const SIGNUP_POINTS = 2000;
@@ -28,20 +29,20 @@ const generateTokens = async (userId) => {
 
 const validateRegisterInput = ({ email, nickname, password }) => {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new AppError(400, 'INVALID_EMAIL', '유효한 이메일을 입력해 주세요.');
+    throw new AppError(ERROR_CODES.INVALID_EMAIL());
   }
+
   if (!nickname || nickname.length < 2 || nickname.length > 12) {
     throw new AppError(
-      400,
-      'INVALID_NICKNAME',
-      '닉네임은 2자 이상 12자 이하로 입력해 주세요.'
+      ERROR_CODES.VALIDATION_ERROR(
+        '닉네임은 2자 이상 12자 이하로 입력해 주세요.'
+      )
     );
   }
+
   if (!password || password.length < 8) {
     throw new AppError(
-      400,
-      'INVALID_PASSWORD',
-      '비밀번호는 8자 이상 입력해 주세요.'
+      ERROR_CODES.VALIDATION_ERROR('비밀번호는 8자 이상 입력해 주세요.')
     );
   }
 };
@@ -54,16 +55,16 @@ export const register = async ({ email, nickname, password }) => {
     authRepository.findUserByNickname(nickname),
   ]);
 
-  if (existingEmail)
-    throw new AppError(409, 'EMAIL_CONFLICT', '이미 사용 중인 이메일입니다.');
-  if (existingNickname)
-    throw new AppError(
-      409,
-      'NICKNAME_CONFLICT',
-      '이미 사용 중인 닉네임입니다.'
-    );
+  if (existingEmail) {
+    throw new AppError(ERROR_CODES.EMAIL_ALREADY_EXISTS());
+  }
+
+  if (existingNickname) {
+    throw new AppError(ERROR_CODES.NICKNAME_ALREADY_EXISTS());
+  }
 
   const hashedPassword = await hashPassword(password);
+
   const user = await authRepository.createUserWithPoint({
     email,
     nickname,
@@ -86,30 +87,20 @@ export const register = async ({ email, nickname, password }) => {
 export const login = async ({ email, password }) => {
   if (!email || !password) {
     throw new AppError(
-      400,
-      'MISSING_FIELDS',
-      '이메일과 비밀번호를 입력해 주세요.'
+      ERROR_CODES.VALIDATION_ERROR('이메일과 비밀번호를 입력해 주세요.')
     );
   }
 
   const user = await authRepository.findUserByEmail(email);
 
-  // 이메일 없음과 비밀번호 불일치를 같은 메시지로 처리 (사용자 열거 방지)
   if (!user || !user.password) {
-    throw new AppError(
-      401,
-      'INVALID_CREDENTIALS',
-      '이메일 또는 비밀번호가 올바르지 않습니다.'
-    );
+    throw new AppError(ERROR_CODES.LOGIN_FAILED());
   }
 
   const isValid = await verifyPassword(password, user.password);
+
   if (!isValid) {
-    throw new AppError(
-      401,
-      'INVALID_CREDENTIALS',
-      '이메일 또는 비밀번호가 올바르지 않습니다.'
-    );
+    throw new AppError(ERROR_CODES.LOGIN_FAILED());
   }
 
   const userWithPoint = await authRepository.findUserWithPoint(user.id);
@@ -128,33 +119,26 @@ export const login = async ({ email, password }) => {
 
 export const refresh = async (incomingToken) => {
   if (!incomingToken) {
-    throw new AppError(401, 'NO_REFRESH_TOKEN', '리프레시 토큰이 없습니다.');
+    throw new AppError(ERROR_CODES.NO_REFRESH_TOKEN());
   }
 
   let payload;
+
   try {
     payload = verifyRefreshToken(incomingToken);
   } catch {
-    throw new AppError(
-      401,
-      'INVALID_REFRESH_TOKEN',
-      '유효하지 않은 리프레시 토큰입니다.'
-    );
+    throw new AppError(ERROR_CODES.INVALID_REFRESH_TOKEN());
   }
 
   const tokenHash = hashToken(incomingToken);
   const stored = await authRepository.findRefreshToken(tokenHash);
 
   if (!stored || stored.expiresAt < new Date()) {
-    throw new AppError(
-      401,
-      'REFRESH_TOKEN_EXPIRED',
-      '리프레시 토큰이 만료되었습니다. 다시 로그인해 주세요.'
-    );
+    throw new AppError(ERROR_CODES.REFRESH_TOKEN_EXPIRED());
   }
 
-  // 기존 토큰 삭제 후 재 발급
   await authRepository.deleteRefreshToken(tokenHash);
+
   return generateTokens(payload.userId);
 };
 
@@ -166,19 +150,16 @@ export const googleOAuthComplete = async ({
 }) => {
   if (!nickname || nickname.length < 2 || nickname.length > 12) {
     throw new AppError(
-      400,
-      'INVALID_NICKNAME',
-      '닉네임은 2자 이상 12자 이하로 입력해 주세요.'
+      ERROR_CODES.VALIDATION_ERROR(
+        '닉네임은 2자 이상 12자 이하로 입력해 주세요.'
+      )
     );
   }
 
   const existingNickname = await authRepository.findUserByNickname(nickname);
+
   if (existingNickname) {
-    throw new AppError(
-      409,
-      'NICKNAME_CONFLICT',
-      '이미 사용 중인 닉네임입니다.'
-    );
+    throw new AppError(ERROR_CODES.NICKNAME_ALREADY_EXISTS());
   }
 
   const user = await authRepository.createOAuthUser({
@@ -195,7 +176,7 @@ export const googleOAuthComplete = async ({
       id: user.id,
       email: user.email,
       nickname: user.nickname,
-      point: 2000,
+      point: SIGNUP_POINTS,
     },
     ...tokens,
   };
@@ -205,5 +186,6 @@ export const logout = async (incomingToken) => {
   if (!incomingToken) return;
 
   const tokenHash = hashToken(incomingToken);
+
   await authRepository.deleteRefreshToken(tokenHash).catch(() => {});
 };

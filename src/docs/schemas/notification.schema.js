@@ -26,7 +26,7 @@ export const notificationSchemas = {
         example: 'PURCHASE',
       },
 
-      message: {
+      content: {
         type: 'string',
         example: '포토카드 구매가 완료되었습니다.',
       },
@@ -34,6 +34,18 @@ export const notificationSchemas = {
       linkUrl: {
         type: 'string',
         example: '/market/1',
+      },
+
+      targetId: {
+        type: 'number',
+        nullable: true,
+        example: 1,
+      },
+
+      targetType: {
+        type: 'string',
+        nullable: true,
+        example: 'EXCHANGE',
       },
 
       isRead: {

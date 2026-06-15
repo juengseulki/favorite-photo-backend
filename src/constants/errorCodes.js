@@ -37,7 +37,7 @@ export const ERROR_CODES = {
     errorCode: 'INVALID_FORMAT',
     message: customMsg,
   }),
-  CONSURRENCY_ERROR: (customMsg = '충돌이 발생했습니다.') => ({
+  CONCURRENCY_ERROR: (customMsg = '충돌이 발생했습니다.') => ({
     httpStatus: 409,
     errorCode: 'CONCURRENCY_ERROR',
     message: customMsg,

@@ -6,10 +6,12 @@ import {
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
 import { hashToken } from '../utils/hash.js';
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: true,
-  sameSite: 'none',
+  secure: isProduction,
+  sameSite: isProduction ? 'none' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
 };
 
@@ -58,7 +60,8 @@ export const logout = async (req, res) => {
   const incomingToken = req.cookies.refreshToken;
   await authService.logout(incomingToken);
 
-  res.clearCookie('refreshToken');
+  res.clearCookie('refreshToken', REFRESH_COOKIE_OPTIONS);
+
   res.json({
     data: null,
     message: '로그아웃되었습니다.',
@@ -95,12 +98,7 @@ export const oauthCallback = async (req, res) => {
     expiresAt,
   });
 
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
 
   res.redirect(`${CLIENT_URL}/auth/callback?token=${accessToken}`);
 };
@@ -116,12 +114,7 @@ export const oauthComplete = async (req, res) => {
       provider: provider ?? 'GOOGLE',
     });
 
-  res.cookie('refreshToken', refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'none',
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
+  res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
 
   res.status(201).json({
     data: { user, accessToken },

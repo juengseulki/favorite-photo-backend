@@ -3,6 +3,7 @@ import {
   postMyCardsService,
   getMyTradesService,
 } from '../services/gallery.service.js';
+import AppError from '../utils/AppError.js';
 
 export const getMyCards = async (req, res, next) => {
   try {
@@ -40,6 +41,10 @@ export const postMyCards = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
+    if (!req.file) {
+      throw new AppError(400, 'FILE_REQUIRED', '파일을 등록해 주세요.');
+    }
+
     const { name, description, grade, genre, initialPrice, totalQuantity } =
       req.body;
 
@@ -56,7 +61,7 @@ export const postMyCards = async (req, res, next) => {
       totalQuantity: Number(totalQuantity),
     });
 
-    return res.status(200).json({
+    return res.status(201).json({
       data: result,
       message: 'success',
     });
@@ -73,8 +78,8 @@ export const getMyTrades = async (req, res, next) => {
       keyword,
       grade,
       genre,
-      tradeType, //SALE | EXCHANGE
-      isSoldOut, //true->SOLD_OUT만, false-> SALE만
+      tradeType,
+      isSoldOut,
       page = 1,
       limit = 15,
       sort = 'latest',
@@ -97,6 +102,6 @@ export const getMyTrades = async (req, res, next) => {
       message: 'success',
     });
   } catch (error) {
-    next(e);
+    next(error);
   }
 };
