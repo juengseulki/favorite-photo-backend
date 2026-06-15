@@ -1,6 +1,7 @@
 import express from 'express';
 import {
   acceptExchangeProposal,
+  cancelExchangeProposal,
   createExchangeProposal,
   getExchangeProposals,
   rejectExchangeProposal,
@@ -20,6 +21,11 @@ router.patch(
   '/exchange-proposals/:id/reject',
   authenticate,
   rejectExchangeProposal
+);
+router.patch(
+  '/exchange-proposals/:id/cancel',
+  authenticate,
+  cancelExchangeProposal
 );
 
 export default router;

@@ -1,114 +1,45 @@
 export const saleSchemas = {
   Sale: {
     type: 'object',
-
     properties: {
-      saleId: {
-        type: 'number',
-        example: 1,
-      },
-
-      cardId: {
-        type: 'number',
-        example: 10,
-      },
-
-      name: {
-        type: 'string',
-        example: '스페인 여행',
-      },
-
-      description: {
-        type: 'string',
-        example: '스페인 여행 포토카드입니다.',
-      },
-
-      imageUrl: {
-        type: 'string',
-        example: 'https://image.com/card.png',
-      },
-
-      grade: {
-        type: 'string',
-        example: 'COMMON',
-      },
-
-      genre: {
-        type: 'string',
-        example: 'ALBUM',
-      },
-
-      price: {
-        type: 'number',
-        example: 5,
-      },
-
+      saleId: { type: 'number', example: 1 },
+      cardId: { type: 'number', example: 10 },
+      name: { type: 'string', example: '스페인 여행' },
+      description: { type: 'string', example: '스페인 여행 포토카드입니다.' },
+      imageUrl: { type: 'string', example: 'https://image.com/card.png' },
+      grade: { type: 'string', example: 'COMMON' },
+      genre: { type: 'string', example: 'ALBUM' },
+      price: { type: 'number', example: 5 },
       status: {
         type: 'string',
-        enum: ['ON_SALE', 'SOLD_OUT'],
+        enum: ['ON_SALE', 'SOLD_OUT', 'CANCELED'],
         example: 'ON_SALE',
       },
-
-      remainingQuantity: {
-        type: 'number',
-        example: 3,
-      },
-
-      totalQuantity: {
-        type: 'number',
-        example: 5,
-      },
-
-      sellerNickname: {
-        type: 'string',
-        example: '판매왕',
-      },
-
-      creatorNickname: {
-        type: 'string',
-        example: '프로여행러',
-      },
-
-      createdAt: {
-        type: 'string',
-        format: 'date-time',
-      },
+      remainingQuantity: { type: 'number', example: 3 },
+      totalQuantity: { type: 'number', example: 5 },
+      sellerNickname: { type: 'string', example: '판매왕' },
+      creatorNickname: { type: 'string', example: '프로여행러' },
+      createdAt: { type: 'string', format: 'date-time' },
     },
   },
 
   CreateSaleRequest: {
     type: 'object',
-
-    required: ['cardCopyIds', 'price'],
-
+    required: ['photoCardId', 'quantity', 'price'],
     properties: {
-      cardCopyIds: {
-        type: 'array',
-
-        items: {
-          type: 'number',
-        },
-
-        example: [1, 2, 3],
-      },
-
-      price: {
-        type: 'number',
-        example: 5,
-      },
-
+      photoCardId: { type: 'number', example: 1 },
+      quantity: { type: 'number', example: 2 },
+      price: { type: 'number', example: 5000 },
       exchangeGrade: {
         type: 'string',
         nullable: true,
         example: 'RARE',
       },
-
       exchangeGenre: {
         type: 'string',
         nullable: true,
         example: 'ALBUM',
       },
-
       exchangeDescription: {
         type: 'string',
         nullable: true,
@@ -119,33 +50,25 @@ export const saleSchemas = {
 
   SaleListResponse: {
     type: 'object',
-
     properties: {
       data: {
         type: 'object',
-
         properties: {
           cards: {
             type: 'array',
-
-            items: {
-              $ref: '#/components/schemas/Sale',
-            },
+            items: { $ref: '#/components/schemas/Sale' },
           },
-
           nextCursor: {
             type: 'number',
             nullable: true,
             example: 20,
           },
-
           hasNextPage: {
             type: 'boolean',
             example: true,
           },
         },
       },
-
       message: {
         type: 'string',
         example: 'success',
@@ -155,12 +78,8 @@ export const saleSchemas = {
 
   SaleDetailResponse: {
     type: 'object',
-
     properties: {
-      data: {
-        $ref: '#/components/schemas/Sale',
-      },
-
+      data: { $ref: '#/components/schemas/Sale' },
       message: {
         type: 'string',
         example: 'success',
@@ -170,9 +89,7 @@ export const saleSchemas = {
 
   PurchaseRequest: {
     type: 'object',
-
     required: ['quantity'],
-
     properties: {
       quantity: {
         type: 'number',

@@ -1,8 +1,20 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
-import { ERROR_MESSAGES } from '../constants/errorMessages.js';
+import { ERROR_CODES } from '../constants/errorCodes.js';
 
 export const getPointsService = async ({ userId, page, limit }) => {
+  if (!Number.isInteger(page) || page < 1) {
+    throw new AppError(
+      ERROR_CODES.VALIDATION_ERROR('page는 1 이상의 정수여야 합니다.')
+    );
+  }
+
+  if (!Number.isInteger(limit) || limit < 1) {
+    throw new AppError(
+      ERROR_CODES.VALIDATION_ERROR('limit은 1 이상의 정수여야 합니다.')
+    );
+  }
+
   const skip = (page - 1) * limit;
 
   const [points, totalCount] = await prisma.$transaction([
@@ -28,7 +40,13 @@ export const getPointsService = async ({ userId, page, limit }) => {
 
   return {
     items: points,
-    meta: { totalCount, page, limit, totalPages, hasNextPage },
+    meta: {
+      totalCount,
+      page,
+      limit,
+      totalPages,
+      hasNextPage,
+    },
   };
 };
 
@@ -37,10 +55,11 @@ export const getRandomBoxStatusService = async (userId) => {
     where: {
       userId,
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: {
+      createdAt: 'desc',
+    },
   });
 
-  // 기록이 없을 경우 (포인트 획득 가능)
   if (!lastHistory) {
     return {
       canOpen: true,
@@ -71,7 +90,7 @@ export const openRandomBoxService = async (userId, selectedBox) => {
   const boxNumber = Number(selectedBox);
 
   if (![1, 2, 3].includes(boxNumber)) {
-    throw new AppError(ERROR_MESSAGES.RANDOM_BOX_OPEN_FAILED, 400);
+    throw new AppError(ERROR_CODES.RANDOM_BOX_OPEN_FAILED());
   }
 
   const result = await prisma.$transaction(async (tx) => {
@@ -79,7 +98,9 @@ export const openRandomBoxService = async (userId, selectedBox) => {
       where: {
         userId,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
     const now = new Date();
@@ -95,7 +116,7 @@ export const openRandomBoxService = async (userId, selectedBox) => {
       );
 
       if (remainingSeconds > 0) {
-        throw new AppError(ERROR_MESSAGES.RANDOM_BOX_COOLDOWN, 400);
+        throw new AppError(ERROR_CODES.RANDOM_BOX_COOLDOWN());
       }
     }
 
