@@ -4,6 +4,7 @@ import {
   getMyTradesService,
 } from '../services/gallery.service.js';
 import AppError from '../utils/AppError.js';
+import cloudinary from '../configs/cloudinary.js';
 
 export const getMyCards = async (req, res, next) => {
   try {
@@ -48,7 +49,11 @@ export const postMyCards = async (req, res, next) => {
     const { name, description, grade, genre, initialPrice, totalQuantity } =
       req.body;
 
-    const imageUrl = `/uploads/${req.file.filename}`;
+    const uploadResult = await cloudinary.uploader.upload(
+      `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`
+    );
+
+    const imageUrl = uploadResult.secure_url;
 
     const result = await postMyCardsService({
       userId,

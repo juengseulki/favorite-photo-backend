@@ -1,6 +1,7 @@
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 import { ERROR_CODES } from '../constants/errorCodes.js';
+import { sendSseToUser } from '../utils/sseClients.js';
 
 export const createNotification = async ({
   userId,
@@ -10,7 +11,7 @@ export const createNotification = async ({
   targetId,
   targetType,
 }) => {
-  return await prisma.notification.create({
+  const notification = await prisma.notification.create({
     data: {
       userId,
       type,
@@ -20,6 +21,10 @@ export const createNotification = async ({
       targetType,
     },
   });
+
+  sendSseToUser(userId, 'notification', notification);
+
+  return notification;
 };
 
 export const getNotificationsService = async (userId) => {
