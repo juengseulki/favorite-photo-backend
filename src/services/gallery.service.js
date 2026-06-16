@@ -1,3 +1,4 @@
+import { CardGrade } from '@prisma/client';
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
@@ -403,7 +404,105 @@ export const getMyTradesService = async ({
     });
   }
 
-  const formattedSales = sales.map((sale) => {
+  const formattedSales = getFormattedSales({ sales });
+  const formattedExchanges = getFormattedExchanges({ exchangeProposals });
+
+  const items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
+    if (sort === 'oldest') {
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    }
+
+    if (sort === 'priceAsc') {
+      return a.price - b.price;
+    }
+
+    if (sort === 'priceDesc') {
+      return b.price - a.price;
+    }
+
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  //Grade 통계를 위한, 전체 목록 가져오기
+  let totalSalesGrades = [];
+  let totalExchangeProposalsGrades = [];
+  if (!tradeType || tradeType === 'SALE') {
+    const totalSales = await prisma.sale.findMany({
+      where: {
+        sellerId: userId,
+        status: saleStatusWhere,
+        photoCard: photoCardWhere,
+      },
+      select: { photoCard: { select: { grade: true } } },
+    });
+    totalSalesGrades = totalSales
+      .map((sale) => sale.photoCard?.grade)
+      .filter(Boolean);
+  }
+  if (!tradeType || tradeType === 'EXCHANGE') {
+    const totalExchangeProposals = await prisma.exchangeProposal.findMany({
+      where: {
+        proposerId: userId,
+        status: 'PENDING',
+        offeredCardCopy: {
+          photoCard: photoCardWhere,
+        },
+      },
+      select: {
+        offeredCardCopy: { select: { photoCard: { select: { grade: true } } } },
+      },
+    });
+    totalExchangeProposalsGrades = totalExchangeProposals
+      .map((ex) => ex.offeredCardCopy?.photoCard?.grade)
+      .filter(Boolean);
+  }
+  const totalItemsGrades = [
+    ...totalSalesGrades,
+    ...totalExchangeProposalsGrades,
+  ];
+
+  //meta 통계 정보
+  const totalCount = totalItemsGrades.length;
+  const totalPages = Math.ceil(totalItemsGrades.length / limit);
+  const hasNextPage = page < totalPages;
+
+  return {
+    items,
+    meta: {
+      page,
+      limit,
+      totalCount,
+      totalPages,
+      hasNextPage,
+      gradeStats: [
+        {
+          grade: CardGrade.COMMON,
+          count: totalItemsGrades.filter((item) => item === CardGrade.COMMON)
+            .length,
+        },
+        {
+          grade: CardGrade.RARE,
+          count: totalItemsGrades.filter((item) => item === CardGrade.RARE)
+            .length,
+        },
+        {
+          grade: CardGrade.SUPER_RARE,
+          count: totalItemsGrades.filter(
+            (item) => item === CardGrade.SUPER_RARE
+          ).length,
+        },
+        {
+          grade: CardGrade.LEGENDARY,
+          count: totalItemsGrades.filter((item) => item === CardGrade.LEGENDARY)
+            .length,
+        },
+      ],
+    },
+  };
+};
+
+const getFormattedSales = ({ sales }) => {
+  return sales.map((sale) => {
     const activeSaleItems = sale.saleItems.filter((item) => !item.purchaseItem);
 
     return {
@@ -423,8 +522,10 @@ export const getMyTradesService = async ({
       createdAt: sale.createdAt,
     };
   });
+};
 
-  const formattedExchanges = exchangeProposals.map((proposal) => {
+const getFormattedExchanges = ({ exchangeProposals }) => {
+  return exchangeProposals.map((proposal) => {
     const photoCard = proposal.offeredCardCopy.photoCard;
 
     return {
@@ -447,31 +548,4 @@ export const getMyTradesService = async ({
       createdAt: proposal.createdAt,
     };
   });
-
-  const items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
-    if (sort === 'oldest') {
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    }
-
-    if (sort === 'priceAsc') {
-      return a.price - b.price;
-    }
-
-    if (sort === 'priceDesc') {
-      return b.price - a.price;
-    }
-
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
-
-  return {
-    items,
-    meta: {
-      page,
-      limit,
-      totalCount: items.length,
-      totalPages: Math.ceil(items.length / limit),
-      hasNextPage: false,
-    },
-  };
 };
