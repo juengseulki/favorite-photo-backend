@@ -467,7 +467,7 @@ export const getMyTradesService = async ({
       page,
       limit,
       totalCount: totalItemsGrades.length,
-      totalPages: Math.ceil(items.length / limit),
+      totalPages: Math.ceil(totalItemsGrades.length / limit),
       hasNextPage: false,
       gradeStats: [
         {
