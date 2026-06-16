@@ -461,14 +461,19 @@ export const getMyTradesService = async ({
     ...totalExchangeProposalsGrades,
   ];
 
+  //meta 통계 정보
+  const totalCount = totalItemsGrades.length;
+  const totalPages = Math.ceil(totalItemsGrades.length / limit);
+  const hasNextPage = page < totalPages;
+
   return {
     items,
     meta: {
       page,
       limit,
-      totalCount: totalItemsGrades.length,
-      totalPages: Math.ceil(totalItemsGrades.length / limit),
-      hasNextPage: false,
+      totalCount,
+      totalPages,
+      hasNextPage,
       gradeStats: [
         {
           grade: CardGrade.COMMON,
