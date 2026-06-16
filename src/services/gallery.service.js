@@ -506,21 +506,23 @@ export const getMyTradesService = async ({
       gradeStats: [
         {
           grade: CardGrade.COMMON,
-          count: totalItems.map((item) => item.grade === CardGrade.COMMON)
+          count: totalItems.filter((item) => item.grade === CardGrade.COMMON)
             .length,
         },
         {
           grade: CardGrade.RARE,
-          count: totalItems.map((item) => item.grade === CardGrade.RARE).length,
-        },
-        {
-          grade: CardGrade.SUPER_RARE,
-          count: totalItems.map((item) => item.grade === CardGrade.SUPER_RARE)
+          count: totalItems.filter((item) => item.grade === CardGrade.RARE)
             .length,
         },
         {
+          grade: CardGrade.SUPER_RARE,
+          count: totalItems.filter(
+            (item) => item.grade === CardGrade.SUPER_RARE
+          ).length,
+        },
+        {
           grade: CardGrade.LEGENDARY,
-          count: totalItems.map((item) => item.grade === CardGrade.LEGENDARY)
+          count: totalItems.filter((item) => item.grade === CardGrade.LEGENDARY)
             .length,
         },
       ],
