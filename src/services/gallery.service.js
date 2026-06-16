@@ -1,3 +1,4 @@
+import { CardGrade } from '@prisma/client';
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
@@ -403,7 +404,132 @@ export const getMyTradesService = async ({
     });
   }
 
-  const formattedSales = sales.map((sale) => {
+  const formattedSales = getFormattedSales({ sales });
+  const formattedExchanges = getFormattedExchanges({ exchangeProposals });
+
+  const items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
+    if (sort === 'oldest') {
+      return new Date(a.createdAt) - new Date(b.createdAt);
+    }
+
+    if (sort === 'priceAsc') {
+      return a.price - b.price;
+    }
+
+    if (sort === 'priceDesc') {
+      return b.price - a.price;
+    }
+
+    return new Date(b.createdAt) - new Date(a.createdAt);
+  });
+
+  //Grade 통계를 위한, 전체 목록 가져오기 (페이지네이션 x)
+  let totalSales = [];
+  let totalExchangeProposale = [];
+  if (!tradeType || tradeType === 'SALE') {
+    totalSales = await prisma.sale.findMany({
+      where: {
+        sellerId: userId,
+        status: saleStatusWhere,
+        photoCard: photoCardWhere,
+      },
+      include: {
+        photoCard: {
+          include: {
+            creator: {
+              select: {
+                nickname: true,
+              },
+            },
+          },
+        },
+        saleItems: {
+          include: {
+            purchaseItem: true,
+          },
+        },
+      },
+      orderBy,
+    });
+  }
+  if (!tradeType || tradeType === 'EXCHANGE') {
+    totalExchangeProposale = await prisma.exchangeProposal.findMany({
+      where: {
+        proposerId: userId,
+        status: 'PENDING',
+        offeredCardCopy: {
+          photoCard: photoCardWhere,
+        },
+      },
+      include: {
+        offeredCardCopy: {
+          include: {
+            photoCard: {
+              include: {
+                creator: {
+                  select: {
+                    nickname: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        sale: {
+          select: {
+            id: true,
+            price: true,
+            status: true,
+            photoCard: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy,
+    });
+  }
+  const totalFormattedSales = getFormattedSales({ sales });
+  const totalFormattedExchanges = getFormattedExchanges({ exchangeProposals });
+  const totalItems = [...totalFormattedSales, ...totalFormattedExchanges]; //통계를 위한 것으로, 정렬 필요 없음.
+
+  return {
+    items,
+    meta: {
+      page,
+      limit,
+      totalCount: items.length,
+      totalPages: Math.ceil(items.length / limit),
+      hasNextPage: false,
+      gradeStats: [
+        {
+          grade: CardGrade.COMMON,
+          count: totalItems.map((item) => item.grade === CardGrade.COMMON)
+            .length,
+        },
+        {
+          grade: CardGrade.RARE,
+          count: totalItems.map((item) => item.grade === CardGrade.RARE).length,
+        },
+        {
+          grade: CardGrade.SUPER_RARE,
+          count: totalItems.map((item) => item.grade === CardGrade.SUPER_RARE)
+            .length,
+        },
+        {
+          grade: CardGrade.LEGENDARY,
+          count: totalItems.map((item) => item.grade === CardGrade.LEGENDARY)
+            .length,
+        },
+      ],
+    },
+  };
+};
+
+const getFormattedSales = ({ sales }) => {
+  return sales.map((sale) => {
     const activeSaleItems = sale.saleItems.filter((item) => !item.purchaseItem);
 
     return {
@@ -423,8 +549,10 @@ export const getMyTradesService = async ({
       createdAt: sale.createdAt,
     };
   });
+};
 
-  const formattedExchanges = exchangeProposals.map((proposal) => {
+const getFormattedExchanges = ({ exchangeProposals }) => {
+  return exchangeProposals.map((proposal) => {
     const photoCard = proposal.offeredCardCopy.photoCard;
 
     return {
@@ -447,31 +575,4 @@ export const getMyTradesService = async ({
       createdAt: proposal.createdAt,
     };
   });
-
-  const items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
-    if (sort === 'oldest') {
-      return new Date(a.createdAt) - new Date(b.createdAt);
-    }
-
-    if (sort === 'priceAsc') {
-      return a.price - b.price;
-    }
-
-    if (sort === 'priceDesc') {
-      return b.price - a.price;
-    }
-
-    return new Date(b.createdAt) - new Date(a.createdAt);
-  });
-
-  return {
-    items,
-    meta: {
-      page,
-      limit,
-      totalCount: items.length,
-      totalPages: Math.ceil(items.length / limit),
-      hasNextPage: false,
-    },
-  };
 };
