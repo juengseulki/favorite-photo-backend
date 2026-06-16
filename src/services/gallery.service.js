@@ -16,6 +16,29 @@ const ALLOWED_GENRES = [
   'ETC',
 ];
 
+const getMonthlyCreatePeriod = () => {
+  const now = new Date();
+
+  return {
+    startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
+    startOfNextMonth: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+  };
+};
+
+const getMonthlyCreateCount = async (userId) => {
+  const { startOfMonth, startOfNextMonth } = getMonthlyCreatePeriod();
+
+  return prisma.photoCard.count({
+    where: {
+      creatorId: userId,
+      createdAt: {
+        gte: startOfMonth,
+        lt: startOfNextMonth,
+      },
+    },
+  });
+};
+
 export const getMyCardsService = async ({
   userId,
   keyword,
@@ -233,6 +256,16 @@ export const postMyCardsService = async ({
     );
   }
 
+  const monthlyCreateCount = await getMonthlyCreateCount(userId);
+
+  if (monthlyCreateCount >= 3) {
+    throw new AppError(
+      400,
+      'MONTHLY_CREATE_LIMIT_EXCEEDED',
+      '포토카드는 한 달에 최대 3회까지 생성할 수 있습니다.'
+    );
+  }
+
   const result = await prisma.$transaction(async (tx) => {
     const photoCard = await tx.photoCard.create({
       data: {
@@ -272,6 +305,7 @@ export const postMyCardsService = async ({
     initialPrice: result.initialPrice,
     creatorId: result.creatorId,
     createdAt: result.createdAt,
+    monthlyCreateCount: monthlyCreateCount + 1,
   };
 };
 
@@ -473,5 +507,18 @@ export const getMyTradesService = async ({
       totalPages: Math.ceil(items.length / limit),
       hasNextPage: false,
     },
+  };
+};
+
+export const getMyCardCreateStatusService = async ({ userId }) => {
+  const monthlyCreateCount = await getMonthlyCreateCount(userId);
+
+  const monthlyCreateLimit = 3;
+
+  return {
+    monthlyCreateCount,
+    monthlyCreateLimit,
+    remainingCreateCount: Math.max(monthlyCreateLimit - monthlyCreateCount, 0),
+    canCreate: monthlyCreateCount < monthlyCreateLimit,
   };
 };
