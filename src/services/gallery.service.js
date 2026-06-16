@@ -423,37 +423,24 @@ export const getMyTradesService = async ({
     return new Date(b.createdAt) - new Date(a.createdAt);
   });
 
-  //Grade 통계를 위한, 전체 목록 가져오기 (페이지네이션 x)
-  let totalSales = [];
-  let totalExchangeProposals = [];
+  //Grade 통계를 위한, 전체 목록 가져오기
+  let totalSalesGrades = [];
+  let totalExchangeProposalsGrades = [];
   if (!tradeType || tradeType === 'SALE') {
-    totalSales = await prisma.sale.findMany({
+    const totalSales = await prisma.sale.findMany({
       where: {
         sellerId: userId,
         status: saleStatusWhere,
         photoCard: photoCardWhere,
       },
-      include: {
-        photoCard: {
-          include: {
-            creator: {
-              select: {
-                nickname: true,
-              },
-            },
-          },
-        },
-        saleItems: {
-          include: {
-            purchaseItem: true,
-          },
-        },
-      },
-      orderBy,
+      select: { photoCard: { select: { grade: true } } },
     });
+    totalSalesGrades = totalSales
+      .map((sale) => sale.photoCard?.grade)
+      .filter(Boolean);
   }
   if (!tradeType || tradeType === 'EXCHANGE') {
-    totalExchangeProposale = await prisma.exchangeProposal.findMany({
+    const totalExchangeProposals = await prisma.exchangeProposal.findMany({
       where: {
         proposerId: userId,
         status: 'PENDING',
@@ -461,41 +448,18 @@ export const getMyTradesService = async ({
           photoCard: photoCardWhere,
         },
       },
-      include: {
-        offeredCardCopy: {
-          include: {
-            photoCard: {
-              include: {
-                creator: {
-                  select: {
-                    nickname: true,
-                  },
-                },
-              },
-            },
-          },
-        },
-        sale: {
-          select: {
-            id: true,
-            price: true,
-            status: true,
-            photoCard: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
+      select: {
+        offeredCardCopy: { select: { photoCard: { select: { grade: true } } } },
       },
-      orderBy,
     });
+    totalExchangeProposalsGrades = totalExchangeProposals
+      .map((ex) => ex.offeredCardCopy?.photoCard?.grade)
+      .filter(Boolean);
   }
-  const formattedTotalSales = getFormattedSales({ totalSales });
-  const formattedTotalExchanges = getFormattedExchanges({
-    totalExchangeProposals,
-  });
-  const totalItems = [...formattedTotalSales, ...formattedTotalExchanges]; //통계를 위한 것으로, 정렬 필요 없음.
+  const totalItemsGrades = [
+    ...totalSalesGrades,
+    ...totalExchangeProposalsGrades,
+  ];
 
   return {
     items,
@@ -508,23 +472,23 @@ export const getMyTradesService = async ({
       gradeStats: [
         {
           grade: CardGrade.COMMON,
-          count: totalItems.filter((item) => item.grade === CardGrade.COMMON)
+          count: totalItemsGrades.filter((item) => item === CardGrade.COMMON)
             .length,
         },
         {
           grade: CardGrade.RARE,
-          count: totalItems.filter((item) => item.grade === CardGrade.RARE)
+          count: totalItemsGrades.filter((item) => item === CardGrade.RARE)
             .length,
         },
         {
           grade: CardGrade.SUPER_RARE,
-          count: totalItems.filter(
-            (item) => item.grade === CardGrade.SUPER_RARE
+          count: totalItemsGrades.filter(
+            (item) => item === CardGrade.SUPER_RARE
           ).length,
         },
         {
           grade: CardGrade.LEGENDARY,
-          count: totalItems.filter((item) => item.grade === CardGrade.LEGENDARY)
+          count: totalItemsGrades.filter((item) => item === CardGrade.LEGENDARY)
             .length,
         },
       ],
