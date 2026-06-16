@@ -425,7 +425,7 @@ export const getMyTradesService = async ({
 
   //Grade 통계를 위한, 전체 목록 가져오기 (페이지네이션 x)
   let totalSales = [];
-  let totalExchangeProposale = [];
+  let totalExchangeProposals = [];
   if (!tradeType || tradeType === 'SALE') {
     totalSales = await prisma.sale.findMany({
       where: {
@@ -491,9 +491,11 @@ export const getMyTradesService = async ({
       orderBy,
     });
   }
-  const totalFormattedSales = getFormattedSales({ sales });
-  const totalFormattedExchanges = getFormattedExchanges({ exchangeProposals });
-  const totalItems = [...totalFormattedSales, ...totalFormattedExchanges]; //통계를 위한 것으로, 정렬 필요 없음.
+  const formattedTotalSales = getFormattedSales({ totalSales });
+  const formattedTotalExchanges = getFormattedExchanges({
+    totalExchangeProposals,
+  });
+  const totalItems = [...formattedTotalSales, ...formattedTotalExchanges]; //통계를 위한 것으로, 정렬 필요 없음.
 
   return {
     items,
