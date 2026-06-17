@@ -2,6 +2,7 @@ import { ExchangeStatus, CardStatus, SaleStatus } from '@prisma/client';
 
 import { prisma } from '../lib/prisma.js';
 import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
+import cardCopyRepository from '../repositories/cardCopy.repository.js';
 import { createNotification } from './notification.service.js';
 import AppError from '../utils/AppError.js';
 import { ERROR_CODES } from '../constants/errorCodes.js';
@@ -68,8 +69,8 @@ export async function createProposal({
     );
   }
 
-  const saleCardCopy = await prisma.cardCopy.findUnique({
-    where: { id: sale.saleItems[0].cardCopyId },
+  const saleCardCopy = await cardCopyRepository.getCardCopyById({
+    id: sale.saleItems[0].cardCopyId,
   });
 
   if (!saleCardCopy) {
@@ -86,8 +87,8 @@ export async function createProposal({
     );
   }
 
-  const offeredCopy = await prisma.cardCopy.findUnique({
-    where: { id: offeredCardCopyId },
+  const offeredCopy = await cardCopyRepository.getCardCopyById({
+    id: offeredCardCopyId,
     include: {
       owner: {
         select: {
@@ -340,8 +341,9 @@ export async function acceptProposal({ userId, proposalId }) {
       );
     }
 
-    const saleCardCopy = await tx.cardCopy.findUnique({
-      where: { id: proposal.sale.saleItems[0].cardCopyId },
+    const saleCardCopy = await cardCopyRepository.getCardCopyById({
+      id: proposal.sale.saleItems[0].cardCopyId,
+      tx,
     });
 
     if (!saleCardCopy) {
@@ -368,8 +370,9 @@ export async function acceptProposal({ userId, proposalId }) {
       );
     }
 
-    const offeredCardCopy = await tx.cardCopy.findUnique({
-      where: { id: proposal.offeredCardCopyId },
+    const offeredCardCopy = await cardCopyRepository.getCardCopyById({
+      id: proposal.offeredCardCopyId,
+      tx,
     });
 
     if (!offeredCardCopy) {
@@ -392,20 +395,22 @@ export async function acceptProposal({ userId, proposalId }) {
       );
     }
 
-    await tx.cardCopy.update({
-      where: { id: saleCardCopy.id },
+    await cardCopyRepository.updateCardCopy({
+      id: saleCardCopy.id,
       data: {
         ownerId: proposal.proposerId,
         status: CardStatus.OWNED,
       },
+      tx,
     });
 
-    await tx.cardCopy.update({
-      where: { id: offeredCardCopy.id },
+    await cardCopyRepository.updateCardCopy({
+      id: offeredCardCopy.id,
       data: {
         ownerId: userId,
         status: CardStatus.OWNED,
       },
+      tx,
     });
 
     await exchangeProposalRepository.setStatus({
