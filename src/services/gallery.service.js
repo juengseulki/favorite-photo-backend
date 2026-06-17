@@ -515,7 +515,11 @@ export const getMyCardCreateStatusService = async ({ userId }) => {
 
   const monthlyCreateLimit = 3;
 
+  const { startOfMonth } = getMonthlyCreatePeriod();
+
   return {
+    year: startOfMonth.getFullYear(),
+    month: startOfMonth.getMonth() + 1,
     monthlyCreateCount,
     monthlyCreateLimit,
     remainingCreateCount: Math.max(monthlyCreateLimit - monthlyCreateCount, 0),
