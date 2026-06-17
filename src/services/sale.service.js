@@ -80,7 +80,7 @@ export const createSale = async ({
   });
 };
 
-export const modifySale = async (saleId, photoCardId, userId, data) => {
+export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
   const parsedSaleId = Number(saleId);
   const parsedPhotoCardId = Number(photoCardId);
 
@@ -250,7 +250,7 @@ export const modifySale = async (saleId, photoCardId, userId, data) => {
   });
 };
 
-export const cancelSale = async (saleId, userId) => {
+export const cancelSale = async ({ saleId, userId }) => {
   const parsedSaleId = Number(saleId);
 
   if (!Number.isInteger(parsedSaleId) || parsedSaleId <= 0) {
