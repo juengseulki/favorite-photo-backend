@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { createNotification } from './notification.service.js';
 import AppError from '../utils/AppError.js';
 import { ERROR_CODES } from '../constants/errorCodes.js';
+import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
 
 const EXCHANGE_STATUS = new Set([
   ExchangeStatus.PENDING,
@@ -262,8 +263,8 @@ export async function listProposals({
 export async function rejectProposal({ userId, proposalId }) {
   validatePositiveInteger(proposalId, 'proposalId');
 
-  const proposal = await prisma.exchangeProposal.findUnique({
-    where: { id: proposalId },
+  const proposal = await exchangeProposalRepository.getProposalById({
+    id: proposalId,
     include: {
       sale: true,
     },
@@ -287,11 +288,10 @@ export async function rejectProposal({ userId, proposalId }) {
     );
   }
 
-  const rejectedProposal = await prisma.exchangeProposal.update({
-    where: { id: proposalId },
-    data: {
-      status: ExchangeStatus.REJECTED,
-    },
+  await exchangeProposalRepository.setStatus({
+    id: proposalId,
+    prevStatus: ExchangeStatus.PENDING,
+    newStatus: ExchangeStatus.REJECTED,
   });
 
   await createNotification({
@@ -303,14 +303,17 @@ export async function rejectProposal({ userId, proposalId }) {
     targetType: 'EXCHANGE',
   });
 
-  return rejectedProposal;
+  return {
+    ...proposal,
+    status: ExchangeStatus.REJECTED,
+  };
 }
 
 export async function cancelProposal({ userId, proposalId }) {
   validatePositiveInteger(proposalId, 'proposalId');
 
-  const proposal = await prisma.exchangeProposal.findUnique({
-    where: { id: proposalId },
+  const proposal = await exchangeProposalRepository.getProposalById({
+    id: proposalId,
   });
 
   if (!proposal) {
@@ -331,12 +334,16 @@ export async function cancelProposal({ userId, proposalId }) {
     );
   }
 
-  return prisma.exchangeProposal.update({
-    where: { id: proposalId },
-    data: {
-      status: ExchangeStatus.CANCELED,
-    },
+  await exchangeProposalRepository.setStatus({
+    id: proposalId,
+    prevStatus: ExchangeStatus.PENDING,
+    newStatus: ExchangeStatus.CANCELED,
   });
+
+  return {
+    ...proposal,
+    status: ExchangeStatus.CANCELED,
+  };
 }
 
 export async function acceptProposal({ userId, proposalId }) {
