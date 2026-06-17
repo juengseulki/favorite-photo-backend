@@ -8,6 +8,7 @@ import purchaseItemRepository from '../repositories/purchaseItem.repository.js';
 import saleRepository from '../repositories/sale.repository.js';
 import saleItemRepository from '../repositories/saleItem.repository.js';
 import cardCopyRepository from '../repositories/cardCopy.repository.js';
+import { addPoint, usePoint } from './point.service.js';
 
 const parsePriceCursor = (cursor) => {
   if (!cursor) return null;
@@ -383,19 +384,6 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
 
     const totalPrice = parsedQuantity * sale.price;
 
-    const buyerPoint = await tx.point.findUnique({
-      where: {
-        userId: buyerId,
-      },
-      select: {
-        balance: true,
-      },
-    });
-
-    if (!buyerPoint || buyerPoint.balance < totalPrice) {
-      throw new AppError(ERROR_CODES.INSUFFICIENT_POINTS());
-    }
-
     const saleItems = await saleItemRepository.getSaleItems({
       saleId: parsedSaleId,
       quantity: parsedQuantity,
@@ -466,44 +454,20 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       });
     }
 
-    await tx.point.update({
-      where: {
-        userId: buyerId,
-      },
-      data: {
-        balance: {
-          decrement: totalPrice,
-        },
-      },
+    await usePoint({
+      userId: buyerId,
+      amount: totalPrice,
+      reason: 'PURCHASE',
+      description: '포토카드 구매',
+      tx,
     });
 
-    await tx.pointHistory.create({
-      data: {
-        userId: buyerId,
-        amount: -totalPrice,
-        reason: 'PURCHASE',
-        description: '포토카드 구매',
-      },
-    });
-
-    await tx.point.update({
-      where: {
-        userId: sale.sellerId,
-      },
-      data: {
-        balance: {
-          increment: totalPrice,
-        },
-      },
-    });
-
-    await tx.pointHistory.create({
-      data: {
-        userId: sale.sellerId,
-        amount: totalPrice,
-        reason: 'SALE',
-        description: '포토카드 판매',
-      },
+    await addPoint({
+      userId: sale.sellerId,
+      amount: totalPrice,
+      reason: 'SALE',
+      description: '포토카드 판매',
+      tx,
     });
 
     return await purchaseRepository.getPurchase({
