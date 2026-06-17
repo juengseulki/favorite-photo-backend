@@ -160,6 +160,13 @@ export const ERROR_CODES = {
     errorCode: 'PHOTO_CARD_PRICE_REQUIRED',
     message: customMsg,
   }),
+  MONTHLY_CREATE_LIMIT_EXCEEDED: (
+    customMsg = '포토카드는 한 달에 최대 3회까지 생성할 수 있습니다.'
+  ) => ({
+    httpStatus: 400,
+    errorCode: 'MONTHLY_CREATE_LIMIT_EXCEEDED',
+    message: customMsg,
+  }),
 
   // 카드 복사본
   CARD_COPY_NOT_FOUND: (customMsg = '보유한 포토카드를 찾을 수 없습니다.') => ({

@@ -17,6 +17,29 @@ const ALLOWED_GENRES = [
   'ETC',
 ];
 
+const getMonthlyCreatePeriod = () => {
+  const now = new Date();
+
+  return {
+    startOfMonth: new Date(now.getFullYear(), now.getMonth(), 1),
+    startOfNextMonth: new Date(now.getFullYear(), now.getMonth() + 1, 1),
+  };
+};
+
+const getMonthlyCreateCount = async (userId) => {
+  const { startOfMonth, startOfNextMonth } = getMonthlyCreatePeriod();
+
+  return prisma.photoCard.count({
+    where: {
+      creatorId: userId,
+      createdAt: {
+        gte: startOfMonth,
+        lt: startOfNextMonth,
+      },
+    },
+  });
+};
+
 export const getMyCardsService = async ({
   userId,
   keyword,
@@ -234,6 +257,12 @@ export const postMyCardsService = async ({
     );
   }
 
+  const monthlyCreateCount = await getMonthlyCreateCount(userId);
+
+  if (monthlyCreateCount >= 3) {
+    throw new AppError(ERROR_CODES.MONTHLY_CREATE_LIMIT_EXCEEDED());
+  }
+  s;
   const result = await prisma.$transaction(async (tx) => {
     const photoCard = await tx.photoCard.create({
       data: {
@@ -273,6 +302,7 @@ export const postMyCardsService = async ({
     initialPrice: result.initialPrice,
     creatorId: result.creatorId,
     createdAt: result.createdAt,
+    monthlyCreateCount: monthlyCreateCount + 1,
   };
 };
 
@@ -548,4 +578,21 @@ const getFormattedExchanges = ({ exchangeProposals }) => {
       createdAt: proposal.createdAt,
     };
   });
+};
+
+export const getMyCardCreateStatusService = async ({ userId }) => {
+  const monthlyCreateCount = await getMonthlyCreateCount(userId);
+
+  const monthlyCreateLimit = 3;
+
+  const { startOfMonth } = getMonthlyCreatePeriod();
+
+  return {
+    year: startOfMonth.getFullYear(),
+    month: startOfMonth.getMonth() + 1,
+    monthlyCreateCount,
+    monthlyCreateLimit,
+    remainingCreateCount: Math.max(monthlyCreateLimit - monthlyCreateCount, 0),
+    canCreate: monthlyCreateCount < monthlyCreateLimit,
+  };
 };
