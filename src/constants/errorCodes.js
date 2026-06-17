@@ -106,6 +106,16 @@ export const ERROR_CODES = {
     errorCode: 'EXPIRED_TOKEN',
     message: customMsg,
   }),
+  NO_REFRESH_TOKEN: (customMsg = '리프레시 토큰이 없습니다.') => ({
+    httpStatus: 401,
+    errorCode: 'NO_REFRESH_TOKEN',
+    message: customMsg,
+  }),
+  REFRESH_TOKEN_EXPIRED: (customMsg = '리프레시 토큰이 만료되었습니다.') => ({
+    httpStatus: 401,
+    errorCode: 'REFRESH_TOKEN_EXPIRED',
+    message: customMsg,
+  }),
 
   // 포토카드
   PHOTO_CARD_NOT_FOUND: (customMsg = '포토카드를 찾을 수 없습니다.') => ({
