@@ -259,13 +259,9 @@ export const postMyCardsService = async ({
   const monthlyCreateCount = await getMonthlyCreateCount(userId);
 
   if (monthlyCreateCount >= 3) {
-    throw new AppError(
-      400,
-      'MONTHLY_CREATE_LIMIT_EXCEEDED',
-      '포토카드는 한 달에 최대 3회까지 생성할 수 있습니다.'
-    );
+    throw new AppError(ERROR_CODES.MONTHLY_CREATE_LIMIT_EXCEEDED());
   }
-
+  s;
   const result = await prisma.$transaction(async (tx) => {
     const photoCard = await tx.photoCard.create({
       data: {
