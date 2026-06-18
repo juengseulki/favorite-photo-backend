@@ -8,6 +8,7 @@ import purchaseItemRepository from '../repositories/purchaseItem.repository.js';
 import saleRepository from '../repositories/sale.repository.js';
 import saleItemRepository from '../repositories/saleItem.repository.js';
 import cardCopyRepository from '../repositories/cardCopy.repository.js';
+import { addPoint, usePoint } from './point.service.js';
 
 const parsePriceCursor = (cursor) => {
   if (!cursor) return null;
@@ -19,6 +20,188 @@ const parsePriceCursor = (cursor) => {
   return { price, id };
 };
 
+const isPriceSort = (sort) => sort === 'priceAsc' || sort === 'priceDesc';
+
+const isSoldOutSale = (sale) =>
+  sale.status === SaleStatus.SOLD_OUT || sale._count.saleItems === 0;
+
+const buildMarketWhere = ({ keyword, grade, genre, saleStatus }) => {
+  const photoCardWhere = {
+    ...(keyword && {
+      name: {
+        contains: keyword,
+        mode: 'insensitive',
+      },
+    }),
+    ...(grade && { grade }),
+    ...(genre && { genre }),
+  };
+
+  let saleStatusWhere = {
+    status: {
+      in: [SaleStatus.ON_SALE, SaleStatus.SOLD_OUT],
+    },
+  };
+
+  if (saleStatus === 'onSale') {
+    saleStatusWhere = {
+      status: SaleStatus.ON_SALE,
+      saleItems: {
+        some: {
+          purchaseItem: null,
+        },
+      },
+    };
+  }
+
+  if (saleStatus === 'soldOut') {
+    saleStatusWhere = {
+      OR: [
+        { status: SaleStatus.SOLD_OUT },
+        {
+          saleItems: {
+            none: {
+              purchaseItem: null,
+            },
+          },
+        },
+      ],
+    };
+  }
+
+  return {
+    ...saleStatusWhere,
+    photoCard: photoCardWhere,
+  };
+};
+
+const buildMarketOrderBy = (sort) => {
+  if (sort === 'priceAsc') {
+    return [{ price: 'asc' }, { id: 'desc' }];
+  }
+
+  if (sort === 'priceDesc') {
+    return [{ price: 'desc' }, { id: 'desc' }];
+  }
+
+  return [{ id: 'desc' }];
+};
+
+const buildMarketCursorWhere = ({ cursor, sort }) => {
+  if (!cursor) return {};
+
+  if (isPriceSort(sort)) {
+    const parsedCursor = parsePriceCursor(cursor);
+
+    if (!parsedCursor) {
+      throw new AppError(
+        ERROR_CODES.INVALID_FORMAT('올바르지 않은 cursor 값입니다.')
+      );
+    }
+
+    return {
+      OR: [
+        {
+          price: {
+            [sort === 'priceAsc' ? 'gt' : 'lt']: parsedCursor.price,
+          },
+        },
+        {
+          price: parsedCursor.price,
+          id: {
+            lt: parsedCursor.id,
+          },
+        },
+      ],
+    };
+  }
+
+  const parsedCursor = Number(cursor);
+
+  if (!Number.isInteger(parsedCursor)) {
+    throw new AppError(
+      ERROR_CODES.INVALID_FORMAT('올바르지 않은 cursor 값입니다.')
+    );
+  }
+
+  return {
+    id: {
+      lt: parsedCursor,
+    },
+  };
+};
+
+const getMarketCounts = async (where) => {
+  const countSales = await prisma.sale.findMany({
+    where,
+    select: {
+      status: true,
+      photoCard: {
+        select: {
+          grade: true,
+          genre: true,
+        },
+      },
+      _count: {
+        select: {
+          saleItems: {
+            where: {
+              purchaseItem: null,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return countSales.reduce(
+    (acc, sale) => {
+      const grade = sale.photoCard.grade;
+      const genre = sale.photoCard.genre;
+
+      acc.grades[grade] = (acc.grades[grade] ?? 0) + 1;
+      acc.genres[genre] = (acc.genres[genre] ?? 0) + 1;
+
+      if (isSoldOutSale(sale)) {
+        acc.saleStatuses.soldOut += 1;
+      } else {
+        acc.saleStatuses.onSale += 1;
+      }
+
+      return acc;
+    },
+    {
+      grades: {},
+      genres: {},
+      saleStatuses: {
+        onSale: 0,
+        soldOut: 0,
+      },
+    }
+  );
+};
+
+const mapMarketCard = (sale) => {
+  const remainingQuantity = sale._count.saleItems;
+
+  return {
+    saleId: sale.id,
+    cardId: sale.photoCard.id,
+    name: sale.photoCard.name,
+    imageUrl: sale.photoCard.imageUrl,
+    grade: sale.photoCard.grade,
+    genre: sale.photoCard.genre,
+    price: sale.price,
+    status: sale.status,
+    isSoldOut: sale.status === SaleStatus.SOLD_OUT || remainingQuantity === 0,
+    remainingQuantity,
+    totalQuantity: sale.photoCard.totalQuantity,
+    sellerNickname: sale.seller.nickname,
+    creatorNickname: sale.photoCard.creator.nickname,
+    createdAt: sale.createdAt,
+  };
+};
+
 export const getMarketCardsService = async ({
   cursor,
   limit = 15,
@@ -26,77 +209,13 @@ export const getMarketCardsService = async ({
   grade,
   genre,
   sort = 'latest',
+  saleStatus,
 }) => {
   const take = Number(limit);
-
-  const where = {
-    status: {
-      in: [SaleStatus.ON_SALE, SaleStatus.SOLD_OUT],
-    },
-    photoCard: {
-      ...(keyword && {
-        name: {
-          contains: keyword,
-          mode: 'insensitive',
-        },
-      }),
-      ...(grade && { grade }),
-      ...(genre && { genre }),
-    },
-  };
-
-  let orderBy = [{ id: 'desc' }];
-  let cursorWhere = {};
-
-  if (sort === 'priceAsc') {
-    orderBy = [{ price: 'asc' }, { id: 'desc' }];
-  }
-
-  if (sort === 'priceDesc') {
-    orderBy = [{ price: 'desc' }, { id: 'desc' }];
-  }
-
-  if (cursor) {
-    if (sort === 'priceAsc' || sort === 'priceDesc') {
-      const parsedCursor = parsePriceCursor(cursor);
-
-      if (!parsedCursor) {
-        throw new AppError(
-          ERROR_CODES.INVALID_CURSOR('올바르지 않은 cursor 값입니다.')
-        );
-      }
-
-      cursorWhere = {
-        OR: [
-          {
-            price: {
-              [sort === 'priceAsc' ? 'gt' : 'lt']: parsedCursor.price,
-            },
-          },
-          {
-            price: parsedCursor.price,
-            id: {
-              lt: parsedCursor.id,
-            },
-          },
-        ],
-      };
-    } else {
-      const parsedCursor = Number(cursor);
-
-      if (!Number.isInteger(parsedCursor)) {
-        throw new AppError(
-          ERROR_CODES.INVALID_CURSOR('올바르지 않은 cursor 값입니다.')
-        );
-      }
-
-      cursorWhere = {
-        id: {
-          lt: parsedCursor,
-        },
-      };
-    }
-  }
+  const where = buildMarketWhere({ keyword, grade, genre, saleStatus });
+  const orderBy = buildMarketOrderBy(sort);
+  const cursorWhere = buildMarketCursorWhere({ cursor, sort });
+  const counts = await getMarketCounts(where);
 
   const sales = await prisma.sale.findMany({
     where: {
@@ -147,36 +266,18 @@ export const getMarketCardsService = async ({
   const lastSale = currentSales[currentSales.length - 1];
 
   const nextCursor = hasNextPage
-    ? sort === 'priceAsc' || sort === 'priceDesc'
+    ? isPriceSort(sort)
       ? `${lastSale.price}_${lastSale.id}`
       : String(lastSale.id)
     : null;
 
-  const cards = currentSales.map((sale) => {
-    const remainingQuantity = sale._count.saleItems;
-
-    return {
-      saleId: sale.id,
-      cardId: sale.photoCard.id,
-      name: sale.photoCard.name,
-      imageUrl: sale.photoCard.imageUrl,
-      grade: sale.photoCard.grade,
-      genre: sale.photoCard.genre,
-      price: sale.price,
-      status: sale.status,
-      isSoldOut: sale.status === SaleStatus.SOLD_OUT || remainingQuantity === 0,
-      remainingQuantity,
-      totalQuantity: sale.photoCard.totalQuantity,
-      sellerNickname: sale.seller.nickname,
-      creatorNickname: sale.photoCard.creator.nickname,
-      createdAt: sale.createdAt,
-    };
-  });
+  const cards = currentSales.map(mapMarketCard);
 
   return {
     cards,
     nextCursor,
     hasNextPage,
+    counts,
   };
 };
 
@@ -298,19 +399,6 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
 
     const totalPrice = parsedQuantity * sale.price;
 
-    const buyerPoint = await tx.point.findUnique({
-      where: {
-        userId: buyerId,
-      },
-      select: {
-        balance: true,
-      },
-    });
-
-    if (!buyerPoint || buyerPoint.balance < totalPrice) {
-      throw new AppError(ERROR_CODES.INSUFFICIENT_POINTS());
-    }
-
     const saleItems = await saleItemRepository.getSaleItems({
       saleId: parsedSaleId,
       quantity: parsedQuantity,
@@ -381,44 +469,20 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       });
     }
 
-    await tx.point.update({
-      where: {
-        userId: buyerId,
-      },
-      data: {
-        balance: {
-          decrement: totalPrice,
-        },
-      },
+    await usePoint({
+      userId: buyerId,
+      amount: totalPrice,
+      reason: 'PURCHASE',
+      description: '포토카드 구매',
+      tx,
     });
 
-    await tx.pointHistory.create({
-      data: {
-        userId: buyerId,
-        amount: -totalPrice,
-        reason: 'PURCHASE',
-        description: '포토카드 구매',
-      },
-    });
-
-    await tx.point.update({
-      where: {
-        userId: sale.sellerId,
-      },
-      data: {
-        balance: {
-          increment: totalPrice,
-        },
-      },
-    });
-
-    await tx.pointHistory.create({
-      data: {
-        userId: sale.sellerId,
-        amount: totalPrice,
-        reason: 'SALE',
-        description: '포토카드 판매',
-      },
+    await addPoint({
+      userId: sale.sellerId,
+      amount: totalPrice,
+      reason: 'SALE',
+      description: '포토카드 판매',
+      tx,
     });
 
     return await purchaseRepository.getPurchase({

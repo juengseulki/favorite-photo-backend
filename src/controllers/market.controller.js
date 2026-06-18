@@ -15,6 +15,7 @@ export const getMarketCards = async (req, res, next) => {
       cursor,
       limit = 15,
       sort = 'latest',
+      saleStatus = 'all',
     } = req.query;
 
     const result = await getMarketCardsService({
@@ -24,6 +25,7 @@ export const getMarketCards = async (req, res, next) => {
       cursor,
       limit: Number(limit),
       sort,
+      saleStatus,
     });
 
     return res.status(200).json({

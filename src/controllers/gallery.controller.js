@@ -2,6 +2,7 @@ import {
   getMyCardsService,
   postMyCardsService,
   getMyTradesService,
+  getMyCardCreateStatusService,
 } from '../services/gallery.service.js';
 import AppError from '../utils/AppError.js';
 import cloudinary from '../configs/cloudinary.js';
@@ -101,6 +102,21 @@ export const getMyTrades = async (req, res, next) => {
       limit: Number(limit),
       sort,
     });
+
+    return res.status(200).json({
+      data: result,
+      message: 'success',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMyCardCreateStatus = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    const result = await getMyCardCreateStatusService({ userId });
 
     return res.status(200).json({
       data: result,

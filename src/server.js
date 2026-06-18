@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import app from './app.js';
+import logger from './configs/logger.js';
+import { startCleanupRefreshTokensJob } from './jobs/cleanupRefreshTokens.job.js';
 
 dotenv.config();
 
@@ -18,4 +20,10 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
+});
+
+app.listen(PORT, () => {
+  logger.info(`Server running on port ${PORT}`);
+
+  startCleanupRefreshTokensJob();
 });
