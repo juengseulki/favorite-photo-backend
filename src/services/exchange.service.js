@@ -258,7 +258,7 @@ export async function rejectProposal({ userId, proposalId }) {
     await createNotification({
       userId: proposal.proposerId,
       type: 'EXCHANGE_REJECTED',
-      content: '교환 제안이 거절되었습니다.',
+      content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환 제안이 거절되었습니다.`,
       linkUrl: `/market/${proposal.saleId}`,
       targetId: proposal.id,
       targetType: 'EXCHANGE',
@@ -445,7 +445,7 @@ export async function acceptProposal({ userId, proposalId }) {
     await createNotification({
       userId: proposal.proposerId,
       type: 'EXCHANGE_ACCEPTED',
-      content: '교환 제안이 승인되었습니다.',
+      content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환이 성사되었습니다.`,
       linkUrl: '/my-gallery',
       targetId: proposal.id,
       targetType: 'EXCHANGE',

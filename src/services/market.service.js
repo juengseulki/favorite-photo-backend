@@ -9,6 +9,7 @@ import saleRepository from '../repositories/sale.repository.js';
 import saleItemRepository from '../repositories/saleItem.repository.js';
 import cardCopyRepository from '../repositories/cardCopy.repository.js';
 import { addPoint, usePoint } from './point.service.js';
+import { createNotification } from './notification.service.js';
 
 const parsePriceCursor = (cursor) => {
   if (!cursor) return null;
@@ -382,8 +383,19 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
   return await prisma.$transaction(async (tx) => {
     const sale = await saleRepository.getSale({
       saleId: parsedSaleId,
+      include: {
+        photoCard: {
+          select: {
+            grade: true,
+            name: true,
+          },
+        },
+      },
       tx,
     });
+
+    console.log('sale =', sale);
+    console.log('sale.photoCard =', sale?.photoCard);
 
     if (!sale) {
       throw new AppError(ERROR_CODES.SALE_NOT_FOUND());
@@ -467,6 +479,16 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
         status: SaleStatus.SOLD_OUT,
         tx,
       });
+
+      await createNotification({
+        userId: sale.sellerId,
+        type: 'SOLD_OUT',
+        content: `[${sale.photoCard.grade} | ${sale.photoCard.name}]이 품절되었습니다.`,
+        linkUrl: `/market/${sale.id}`,
+        targetId: sale.id,
+        targetType: 'SALE',
+        tx,
+      });
     }
 
     await usePoint({
@@ -482,6 +504,26 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       amount: totalPrice,
       reason: 'SALE',
       description: '포토카드 판매',
+      tx,
+    });
+
+    await createNotification({
+      userId: sale.sellerId,
+      type: 'PURCHASE',
+      content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드가 판매되었습니다.`,
+      linkUrl: '/my-shop',
+      targetId: purchase.id,
+      targetType: 'PURCHASE',
+      tx,
+    });
+
+    await createNotification({
+      userId: buyerId,
+      type: 'PURCHASE',
+      content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 구매가 완료되었습니다.`,
+      linkUrl: '/my-gallery',
+      targetId: purchase.id,
+      targetType: 'PURCHASE',
       tx,
     });
 
