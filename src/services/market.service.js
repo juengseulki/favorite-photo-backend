@@ -483,7 +483,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       await createNotification({
         userId: sale.sellerId,
         type: 'SOLD_OUT',
-        content: `[${sale.photoCard.grade} | ${sale.photoCard.name}]이 품절되었습니다.`,
+        content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드가 품절되었습니다.`,
         linkUrl: `/market/${sale.id}`,
         targetId: sale.id,
         targetType: 'SALE',
@@ -511,7 +511,7 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       userId: sale.sellerId,
       type: 'PURCHASE',
       content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드가 판매되었습니다.`,
-      linkUrl: '/my-shop',
+      linkUrl: `/market/${sale.id}`,
       targetId: purchase.id,
       targetType: 'PURCHASE',
       tx,

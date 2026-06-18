@@ -143,7 +143,7 @@ export async function createProposal({
     await createNotification({
       userId: sale.sellerId,
       type: 'EXCHANGE_REQUEST',
-      content: `${offeredCopy.owner.nickname}님이 [${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환을 제안했습니다.`,
+      content: `${offeredCopy.owner.nickname}님이 [${sale.photoCard.grade} | ${sale.photoCard.name}]의 포토카드 교환을 제안했습니다.`,
       linkUrl: `/my-shop/${saleId}`,
       targetId: proposal.id,
       targetType: 'EXCHANGE',
@@ -225,7 +225,16 @@ export async function rejectProposal({ userId, proposalId }) {
   const proposal = await exchangeProposalRepository.getProposalById({
     id: proposalId,
     include: {
-      sale: true,
+      sale: {
+        include: {
+          photoCard: {
+            select: {
+              grade: true,
+              name: true,
+            },
+          },
+        },
+      },
     },
   });
 
@@ -258,7 +267,7 @@ export async function rejectProposal({ userId, proposalId }) {
     await createNotification({
       userId: proposal.proposerId,
       type: 'EXCHANGE_REJECTED',
-      content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환 제안이 거절되었습니다.`,
+      content: `[${proposal.sale.photoCard.grade} | ${proposal.sale.photoCard.name}] 포토카드 교환 제안이 거절되었습니다.`,
       linkUrl: `/market/${proposal.saleId}`,
       targetId: proposal.id,
       targetType: 'EXCHANGE',
@@ -319,6 +328,12 @@ export async function acceptProposal({ userId, proposalId }) {
         sale: {
           include: {
             saleItems: true,
+            photoCard: {
+              select: {
+                grade: true,
+                name: true,
+              },
+            },
           },
         },
         offeredCardCopy: true,
@@ -445,7 +460,7 @@ export async function acceptProposal({ userId, proposalId }) {
     await createNotification({
       userId: proposal.proposerId,
       type: 'EXCHANGE_ACCEPTED',
-      content: `[${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환이 성사되었습니다.`,
+      content: `[${proposal.sale.photoCard.grade} | ${proposal.sale.photoCard.name}] 포토카드 교환이 성사되었습니다.`,
       linkUrl: '/my-gallery',
       targetId: proposal.id,
       targetType: 'EXCHANGE',
