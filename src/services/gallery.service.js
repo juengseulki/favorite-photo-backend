@@ -358,13 +358,13 @@ export const getMyTradesService = async ({
     ...(grade && { grade }),
     ...(genre && { genre }),
   };
-  console.log('[photoCardWhere]', photoCardWhere);
+  //console.log('[photoCardWhere]', photoCardWhere);
 
   const parsedIsSoldOut =
     isSoldOut === undefined
       ? undefined
       : isSoldOut === 'true' || isSoldOut === true;
-  console.log('[parsedIsSoldOut]', parsedIsSoldOut);
+  //console.log('[parsedIsSoldOut]', parsedIsSoldOut);
 
   const saleStatusWhere =
     parsedIsSoldOut === undefined
@@ -372,7 +372,7 @@ export const getMyTradesService = async ({
       : parsedIsSoldOut
         ? 'SOLD_OUT'
         : 'ON_SALE';
-  console.log('[saleStatusWhere]', saleStatusWhere);
+  //console.log('[saleStatusWhere]', saleStatusWhere);
 
   //Sales와 Exchanges를 한 쿼리로 받아와야 함.
   //현재는, 기본상태일 때의 값을 SALE과 EXCHANGE각각 따로 가져오는데 -> 기본 상태일 때, 아예 다른 쿼리로 가져오도록 수정이 필요.
@@ -388,7 +388,7 @@ export const getMyTradesService = async ({
         : parsedIsSoldOut
           ? `s."status" = 'SOLD_OUT'`
           : `s."status" = 'ON_SALE'`;
-    console.log('[saleStatusSQL]', saleStatusSQL);
+    //console.log('[saleStatusSQL]', saleStatusSQL);
     let tradesRaw = [];
     try {
       tradesRaw = await prisma.$queryRawUnsafe(
@@ -425,9 +425,9 @@ export const getMyTradesService = async ({
         limit,
         skip
       );
-      console.log('[tradesRaw]', tradesRaw);
+      //console.log('[tradesRaw]', tradesRaw);
     } catch (e) {
-      console.log('[error]', e);
+      //console.log('[error]', e);
     }
 
     //tradesRaw에서 sale, exchange 분리
