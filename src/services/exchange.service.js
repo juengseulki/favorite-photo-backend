@@ -129,24 +129,29 @@ export async function createProposal({
     );
   }
 
-  const proposal = await exchangeProposalRepository.createProposal({
-    data: {
-      saleId,
-      proposerId: userId,
-      offeredCardCopyId,
-      description: normalizedDescription,
-    },
-  });
+  const proposal = await prisma.$transaction(async (tx) => {
+    const proposal = await exchangeProposalRepository.createProposal({
+      data: {
+        saleId,
+        proposerId: userId,
+        offeredCardCopyId,
+        description: normalizedDescription,
+      },
+      tx,
+    });
 
-  await createNotification({
-    userId: sale.sellerId,
-    type: 'EXCHANGE_REQUEST',
-    content: `${offeredCopy.owner.nickname}님이 [${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환을 제안했습니다.`,
-    linkUrl: `/exchange/${proposal.id}`,
-    targetId: proposal.id,
-    targetType: 'EXCHANGE',
-  });
+    await createNotification({
+      userId: sale.sellerId,
+      type: 'EXCHANGE_REQUEST',
+      content: `${offeredCopy.owner.nickname}님이 [${sale.photoCard.grade} | ${sale.photoCard.name}] 포토카드 교환을 제안했습니다.`,
+      linkUrl: `/my-shop/${saleId}`,
+      targetId: proposal.id,
+      targetType: 'EXCHANGE',
+      tx,
+    });
 
+    return proposal;
+  });
   return proposal;
 }
 
@@ -242,19 +247,23 @@ export async function rejectProposal({ userId, proposalId }) {
     );
   }
 
-  await exchangeProposalRepository.setStatus({
-    id: proposalId,
-    prevStatus: ExchangeStatus.PENDING,
-    newStatus: ExchangeStatus.REJECTED,
-  });
+  await prisma.$transaction(async (tx) => {
+    await exchangeProposalRepository.setStatus({
+      id: proposalId,
+      prevStatus: ExchangeStatus.PENDING,
+      newStatus: ExchangeStatus.REJECTED,
+      tx,
+    });
 
-  await createNotification({
-    userId: proposal.proposerId,
-    type: 'EXCHANGE_REJECTED',
-    content: '교환 제안이 거절되었습니다.',
-    linkUrl: `/market/${proposal.saleId}`,
-    targetId: proposal.id,
-    targetType: 'EXCHANGE',
+    await createNotification({
+      userId: proposal.proposerId,
+      type: 'EXCHANGE_REJECTED',
+      content: '교환 제안이 거절되었습니다.',
+      linkUrl: `/market/${proposal.saleId}`,
+      targetId: proposal.id,
+      targetType: 'EXCHANGE',
+      tx,
+    });
   });
 
   return {
@@ -437,9 +446,10 @@ export async function acceptProposal({ userId, proposalId }) {
       userId: proposal.proposerId,
       type: 'EXCHANGE_ACCEPTED',
       content: '교환 제안이 승인되었습니다.',
-      linkUrl: `/market/${proposal.saleId}`,
+      linkUrl: '/my-gallery',
       targetId: proposal.id,
       targetType: 'EXCHANGE',
+      tx,
     });
 
     return {
