@@ -187,6 +187,7 @@ const mapMarketCard = (sale) => {
   return {
     saleId: sale.id,
     cardId: sale.photoCard.id,
+    sellerId: sale.seller.id,
     name: sale.photoCard.name,
     imageUrl: sale.photoCard.imageUrl,
     grade: sale.photoCard.grade,
@@ -231,6 +232,7 @@ export const getMarketCardsService = async ({
       createdAt: true,
       seller: {
         select: {
+          id: true,
           nickname: true,
         },
       },
