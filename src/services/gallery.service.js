@@ -605,8 +605,7 @@ export const getMyTradesService = async ({
     const totalSales = await prisma.sale.findMany({
       where: {
         sellerId: userId,
-        status: saleStatusWhere,
-        photoCard: photoCardWhere,
+        status: { in: ['ON_SALE', 'SOLD_OUT', 'CANCELED'] }, //isSoldOut이 undefined일 때의 조건과 같음. (기본 상태)
       },
       select: { photoCard: { select: { grade: true } } },
     });
@@ -619,9 +618,6 @@ export const getMyTradesService = async ({
       where: {
         proposerId: userId,
         status: 'PENDING',
-        offeredCardCopy: {
-          photoCard: photoCardWhere,
-        },
       },
       select: {
         offeredCardCopy: { select: { photoCard: { select: { grade: true } } } },
