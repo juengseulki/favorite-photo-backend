@@ -147,21 +147,6 @@ const buildMarketCursorWhere = ({ cursor, sort }) => {
   };
 };
 
-const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
-
-const GENRES = [
-  'ALBUM',
-  'SPECIAL',
-  'FAN_SIGN',
-  'SEASON_GREETING',
-  'FAN_MEETING',
-  'CONCERT',
-  'MD',
-  'COLLAB',
-  'FANCLUB',
-  'ETC',
-];
-
 const getMarketCounts = async (where) => {
   const photoCardWhere = where.photoCard ?? {};
 
