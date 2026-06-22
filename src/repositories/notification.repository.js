@@ -58,6 +58,21 @@ const notificationRepository = {
       },
     });
   },
+
+  countNotifications: async (userId) => {
+    return prisma.notification.count({
+      where: { userId },
+    });
+  },
+
+  countUnreadNotifications: async (userId) => {
+    return prisma.notification.count({
+      where: {
+        userId,
+        isRead: false,
+      },
+    });
+  },
 };
 
 export default notificationRepository;

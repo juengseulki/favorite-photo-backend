@@ -216,6 +216,11 @@ model PhotoCard {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([creatorId])
+  @@index([grade])
+  @@index([genre])
+  @@index([createdAt])
 }
 
 model CardCopy {
@@ -240,6 +245,9 @@ model CardCopy {
 
   @@index([ownerId])
   @@index([photoCardId])
+  @@index([status])
+  @@index([ownerId, status])
+  @@index([photoCardId, ownerId, status])
 }
 
 model Sale {
@@ -271,6 +279,11 @@ model Sale {
 
   @@index([sellerId])
   @@index([photoCardId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([price])
+  @@index([status, id])
+  @@index([price, id])
 }
 
 model SaleItem {
@@ -286,6 +299,8 @@ model SaleItem {
   createdAt    DateTime      @default(now())
   purchaseItem PurchaseItem?
 
+  @@index([saleId])
+  @@index([cardCopyId])
 }
 
 model Purchase {
@@ -343,6 +358,8 @@ model ExchangeProposal {
 
   @@index([saleId])
   @@index([proposerId])
+  @@index([status])
+  @@index([proposerId, status])
 }
 
 model Notification {
@@ -362,6 +379,7 @@ model Notification {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, createdAt])
 }
 
 model PointHistory {
@@ -380,4 +398,5 @@ model PointHistory {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([userId, createdAt])
 }
