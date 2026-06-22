@@ -11,6 +11,21 @@ import cardCopyRepository from '../repositories/cardCopy.repository.js';
 import { addPoint, usePoint } from './point.service.js';
 import { createNotification } from './notification.service.js';
 
+const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
+
+const GENRES = [
+  'ALBUM',
+  'SPECIAL',
+  'FAN_SIGN',
+  'SEASON_GREETING',
+  'FAN_MEETING',
+  'CONCERT',
+  'MD',
+  'COLLAB',
+  'FANCLUB',
+  'ETC',
+];
+
 const parsePriceCursor = (cursor) => {
   if (!cursor) return null;
 
@@ -133,53 +148,77 @@ const buildMarketCursorWhere = ({ cursor, sort }) => {
 };
 
 const getMarketCounts = async (where) => {
-  const countSales = await prisma.sale.findMany({
-    where,
-    select: {
-      status: true,
-      photoCard: {
-        select: {
-          grade: true,
-          genre: true,
-        },
-      },
-      _count: {
-        select: {
+  const [onSaleCount, soldOutCount, gradeCounts, genreCounts] =
+    await Promise.all([
+      prisma.sale.count({
+        where: {
+          ...where,
+          status: SaleStatus.ON_SALE,
           saleItems: {
-            where: {
+            some: {
               purchaseItem: null,
             },
           },
         },
-      },
+      }),
+
+      prisma.sale.count({
+        where: {
+          ...where,
+          OR: [
+            { status: SaleStatus.SOLD_OUT },
+            {
+              saleItems: {
+                none: {
+                  purchaseItem: null,
+                },
+              },
+            },
+          ],
+        },
+      }),
+
+      Promise.all(
+        GRADES.map(async (grade) => {
+          const count = await prisma.sale.count({
+            where: {
+              ...where,
+              photoCard: {
+                ...where.photoCard,
+                grade,
+              },
+            },
+          });
+
+          return [grade, count];
+        })
+      ),
+
+      Promise.all(
+        GENRES.map(async (genre) => {
+          const count = await prisma.sale.count({
+            where: {
+              ...where,
+              photoCard: {
+                ...where.photoCard,
+                genre,
+              },
+            },
+          });
+
+          return [genre, count];
+        })
+      ),
+    ]);
+
+  return {
+    grades: Object.fromEntries(gradeCounts),
+    genres: Object.fromEntries(genreCounts),
+    saleStatuses: {
+      onSale: onSaleCount,
+      soldOut: soldOutCount,
     },
-  });
-
-  return countSales.reduce(
-    (acc, sale) => {
-      const grade = sale.photoCard.grade;
-      const genre = sale.photoCard.genre;
-
-      acc.grades[grade] = (acc.grades[grade] ?? 0) + 1;
-      acc.genres[genre] = (acc.genres[genre] ?? 0) + 1;
-
-      if (isSoldOutSale(sale)) {
-        acc.saleStatuses.soldOut += 1;
-      } else {
-        acc.saleStatuses.onSale += 1;
-      }
-
-      return acc;
-    },
-    {
-      grades: {},
-      genres: {},
-      saleStatuses: {
-        onSale: 0,
-        soldOut: 0,
-      },
-    }
-  );
+  };
 };
 
 const mapMarketCard = (sale) => {

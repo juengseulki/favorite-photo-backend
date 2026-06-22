@@ -26,7 +26,7 @@ export const getMyCards = async (req, res, next) => {
       grade,
       genre,
       page: Number(page),
-      limit: Number(limit),
+      limit: Math.min(Number(limit), 50),
       sort,
     });
 
@@ -99,7 +99,7 @@ export const getMyTrades = async (req, res, next) => {
       tradeType: tradeType || undefined,
       isSoldOut: isSoldOut || undefined,
       page: Number(page),
-      limit: Number(limit),
+      limit: Math.min(Number(limit), 50),
       sort,
     });
 
