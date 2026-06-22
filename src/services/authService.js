@@ -137,8 +137,6 @@ export const refresh = async (incomingToken) => {
     throw new AppError(ERROR_CODES.REFRESH_TOKEN_EXPIRED());
   }
 
-  await authRepository.deleteRefreshToken(tokenHash);
-
   return generateTokens(payload.userId);
 };
 

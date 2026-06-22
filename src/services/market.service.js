@@ -265,7 +265,6 @@ export const getMarketCardsService = async ({
   const where = buildMarketWhere({ keyword, grade, genre, saleStatus });
   const orderBy = buildMarketOrderBy(sort);
   const cursorWhere = buildMarketCursorWhere({ cursor, sort });
-  const counts = await getMarketCounts(where);
 
   const sales = await prisma.sale.findMany({
     where: {
@@ -328,8 +327,23 @@ export const getMarketCardsService = async ({
     cards,
     nextCursor,
     hasNextPage,
-    counts,
   };
+};
+
+export const getMarketCountsService = async ({
+  keyword,
+  grade,
+  genre,
+  saleStatus,
+}) => {
+  const where = buildMarketWhere({
+    keyword,
+    grade,
+    genre,
+    saleStatus,
+  });
+
+  return getMarketCounts(where);
 };
 
 export const getMarketCardDetailService = async (saleId) => {
@@ -443,9 +457,6 @@ export const purchaseCardsService = async ({ saleId, buyerId, quantity }) => {
       },
       tx,
     });
-
-    console.log('sale =', sale);
-    console.log('sale.photoCard =', sale?.photoCard);
 
     if (!sale) {
       throw new AppError(ERROR_CODES.SALE_NOT_FOUND());
