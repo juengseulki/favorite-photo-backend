@@ -1,4 +1,4 @@
-import { CardGrade } from '@prisma/client';
+import { CardGrade, Prisma } from '@prisma/client';
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
@@ -373,118 +373,128 @@ export const getMyTradesService = async ({
   //기본 상태라면
   //정렬 기준은 항상 고정되어있으니까 그냥 변수로 안넣음. 나중에 필요하면 추가..
   if (!tradeType) {
-    const saleStatusSQL =
-      isSoldOut === 'ON_SALE' || isSoldOut === 'SOLD_OUT'
-        ? `s."status" = '${isSoldOut}'`
-        : `s."status" IN ('ON_SALE', 'SOLD_OUT')`;
-    //console.log('[saleStatusSQL]', saleStatusSQL);
-    let tradesRaw = [];
-    try {
-      tradesRaw = await prisma.$queryRawUnsafe(
-        `
-      SELECT * FROM(
-        SELECT s.id, 'SALE' AS type, s."createdAt"
-        FROM "Sale" s
-        JOIN "PhotoCard" pc ON s."photoCardId" = pc.id
-        WHERE s."sellerId" = $1 
-          AND ${saleStatusSQL} 
-          AND ($2::text IS NULL OR pc."grade" = $2::"CardGrade")
-          AND ($3::text IS NULL OR pc."genre" = $3::"CardGenre")
-          AND ($4::text IS NULL OR pc."name" ILIKE '%' || $4 || '%')
-        
-        UNION ALL
-        
-        SELECT ep.id, 'EXCHANGE' AS type, ep."createdAt"
-        FROM "ExchangeProposal" ep
-        JOIN "CardCopy" cc ON ep."offeredCardCopyId" = cc.id
-        JOIN "PhotoCard" pc ON cc."photoCardId" = pc.id
-        WHERE ep."proposerId" = $1 
-          AND ep."status" = 'PENDING'
-          AND ($2::text IS NULL OR pc."grade" = $2::"CardGrade")
-          AND ($3::text IS NULL OR pc."genre" = $3::"CardGenre")
-          AND ($4::text IS NULL OR pc."name" ILIKE '%' || $4 || '%')
-      ) AS trades
-      ORDER BY "createdAt" DESC
-      LIMIT $5 OFFSET $6;
-    `,
-        userId,
-        grade ?? null,
-        genre ?? null,
-        keyword ?? null,
-        limit,
-        skip
-      );
-      //console.log('[tradesRaw]', tradesRaw);
-    } catch (e) {
-      //console.log('[error]', e);
-    }
+    const saleStatusCondition =
+      parsedIsSoldOut === undefined
+        ? Prisma.sql`s."status" IN ('ON_SALE', 'SOLD_OUT')`
+        : parsedIsSoldOut
+          ? Prisma.sql`s."status" = 'SOLD_OUT'`
+          : Prisma.sql`s."status" = 'ON_SALE'`;
 
-    //tradesRaw에서 sale, exchange 분리
+    const gradeCondition = grade
+      ? Prisma.sql`AND pc."grade" = ${grade}::"CardGrade"`
+      : Prisma.empty;
+
+    const genreCondition = genre
+      ? Prisma.sql`AND pc."genre" = ${genre}::"CardGenre"`
+      : Prisma.empty;
+
+    const keywordCondition = keyword
+      ? Prisma.sql`AND pc."name" ILIKE ${`%${keyword}%`}`
+      : Prisma.empty;
+
+    const tradesRaw = await prisma.$queryRaw`
+    SELECT *
+    FROM (
+      SELECT 
+        s.id,
+        'SALE' AS type,
+        s."createdAt"
+      FROM "Sale" s
+      JOIN "PhotoCard" pc ON s."photoCardId" = pc.id
+      WHERE s."sellerId" = ${userId}
+        AND ${saleStatusCondition}
+        ${gradeCondition}
+        ${genreCondition}
+        ${keywordCondition}
+
+      UNION ALL
+
+      SELECT 
+        ep.id,
+        'EXCHANGE' AS type,
+        ep."createdAt"
+      FROM "ExchangeProposal" ep
+      JOIN "CardCopy" cc ON ep."offeredCardCopyId" = cc.id
+      JOIN "PhotoCard" pc ON cc."photoCardId" = pc.id
+      WHERE ep."proposerId" = ${userId}
+        AND ep."status" = 'PENDING'
+        ${gradeCondition}
+        ${genreCondition}
+        ${keywordCondition}
+    ) AS trades
+    ORDER BY "createdAt" DESC
+    LIMIT ${limit}
+    OFFSET ${skip};
+  `;
+
     const saleIds = tradesRaw
       .filter((trade) => trade.type === 'SALE')
       .map((sale) => Number(sale.id));
+
     const exchangeIds = tradesRaw
       .filter((trade) => trade.type === 'EXCHANGE')
       .map((exchange) => Number(exchange.id));
-    //sale에 대해, 데이터 가져오기
-    const sales = await prisma.sale.findMany({
-      where: { id: { in: saleIds } },
-      include: {
-        photoCard: {
-          include: {
-            creator: {
-              select: {
-                nickname: true,
+
+    const [sales, exchanges] = await Promise.all([
+      prisma.sale.findMany({
+        where: { id: { in: saleIds } },
+        include: {
+          photoCard: {
+            include: {
+              creator: {
+                select: {
+                  nickname: true,
+                },
               },
             },
           },
-        },
-        saleItems: {
-          include: {
-            purchaseItem: true,
+          saleItems: {
+            include: {
+              purchaseItem: true,
+            },
           },
         },
-      },
-    });
-    //exchange에 대해, 데이터 가져오기
-    const exchanges = await prisma.exchangeProposal.findMany({
-      where: {
-        id: { in: exchangeIds },
-      },
-      include: {
-        offeredCardCopy: {
-          include: {
-            photoCard: {
-              include: {
-                creator: {
-                  select: {
-                    nickname: true,
+      }),
+
+      prisma.exchangeProposal.findMany({
+        where: {
+          id: { in: exchangeIds },
+        },
+        include: {
+          offeredCardCopy: {
+            include: {
+              photoCard: {
+                include: {
+                  creator: {
+                    select: {
+                      nickname: true,
+                    },
                   },
                 },
               },
             },
           },
-        },
-        sale: {
-          select: {
-            id: true,
-            price: true,
-            status: true,
-            photoCard: {
-              select: {
-                name: true,
+          sale: {
+            select: {
+              id: true,
+              price: true,
+              status: true,
+              photoCard: {
+                select: {
+                  name: true,
+                },
               },
             },
           },
         },
-      },
-    });
-    //이걸 포맷팅 해서 반환
+      }),
+    ]);
+
     const formattedSales = getFormattedSales({ sales });
     const formattedExchanges = getFormattedExchanges({
       exchangeProposals: exchanges,
     });
-    //가져온 데이터를 trades로 합치기 & 정렬
+
     items = [...formattedSales, ...formattedExchanges].sort((a, b) => {
       if (sort === 'oldest') {
         return new Date(a.createdAt) - new Date(b.createdAt);

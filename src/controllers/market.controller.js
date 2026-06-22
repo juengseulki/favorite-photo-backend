@@ -23,7 +23,7 @@ export const getMarketCards = async (req, res, next) => {
       grade,
       genre,
       cursor,
-      limit: Number(limit),
+      limit: Math.min(Number(limit), 50),
       sort,
       saleStatus,
     });
