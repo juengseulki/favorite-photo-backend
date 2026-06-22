@@ -1,4 +1,4 @@
-import { CardGrade, Prisma } from '@prisma/client';
+import { CardGrade, CardStatus, Prisma } from '@prisma/client';
 import prisma from '../configs/prisma.js';
 import AppError from '../utils/AppError.js';
 
@@ -117,11 +117,15 @@ export const getMyCardsService = async ({
         cardCopies: {
           where: {
             ownerId: userId,
-            status: 'OWNED',
+            status: CardStatus.OWNED,
           },
           select: {
             id: true,
-            status: true,
+            owner: {
+              select: {
+                nickname: true,
+              },
+            },
           },
         },
       },
@@ -171,6 +175,7 @@ export const getMyCardsService = async ({
     grade: card.grade,
     genre: card.genre,
     creatorNickname: card.creator.nickname,
+    ownerNickname: card.cardCopies[0]?.owner?.nickname ?? card.creator.nickname,
     initialPrice: card.initialPrice,
     price: card.initialPrice,
     createdAt: card.createdAt,
@@ -454,6 +459,11 @@ export const getMyTradesService = async ({
       prisma.sale.findMany({
         where: { id: { in: saleIds } },
         include: {
+          seller: {
+            select: {
+              nickname: true,
+            },
+          },
           photoCard: {
             include: {
               creator: {
@@ -539,6 +549,11 @@ export const getMyTradesService = async ({
         photoCard: photoCardWhere,
       },
       include: {
+        seller: {
+          select: {
+            nickname: true,
+          },
+        },
         photoCard: {
           include: {
             creator: {
@@ -788,6 +803,10 @@ const getFormattedSales = ({ sales }) => {
       statusLabel: sale.status === 'SOLD_OUT' ? '판매 완료' : '판매 중',
       price: sale.price,
       createdAt: sale.createdAt,
+      seller: {
+        nickname: sale.seller?.nickname ?? sale.photoCard.creator.nickname,
+      },
+      ownerNickname: sale.seller?.nickname ?? sale.photoCard.creator.nickname,
       creator: {
         nickname: sale.photoCard.creator.nickname,
       },
