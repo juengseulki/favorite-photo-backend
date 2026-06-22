@@ -63,6 +63,7 @@ export const getMyCardsService = async ({
     cardCopies: {
       some: {
         ownerId: userId,
+        status: 'OWNED',
       },
     },
   };
@@ -71,6 +72,7 @@ export const getMyCardsService = async ({
     cardCopies: {
       some: {
         ownerId: userId,
+        status: 'OWNED',
       },
     },
   };
@@ -115,6 +117,7 @@ export const getMyCardsService = async ({
         cardCopies: {
           where: {
             ownerId: userId,
+            status: 'OWNED',
           },
           select: {
             id: true,
@@ -133,6 +136,7 @@ export const getMyCardsService = async ({
         cardCopies: {
           where: {
             ownerId: userId,
+            status: 'OWNED',
           },
           select: {
             id: true,
