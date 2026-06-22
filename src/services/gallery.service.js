@@ -365,9 +365,11 @@ export const getMyTradesService = async ({
   //console.log('[photoCardWhere]', photoCardWhere);
 
   const parsedIsSoldOut =
-    isSoldOut === undefined
-      ? undefined
-      : isSoldOut === 'true' || isSoldOut === true;
+    isSoldOut === 'SOLD_OUT'
+      ? true
+      : isSoldOut === 'ON_SALE'
+        ? false
+        : undefined;
   //console.log('[parsedIsSoldOut]', parsedIsSoldOut);
 
   const saleStatusWhere =
@@ -644,6 +646,88 @@ export const getMyTradesService = async ({
     ...totalExchangeProposalsGrades,
   ];
 
+  //----필터 별 카드 개수 정보----
+  const [allFilteredSales, allFilteredExchanges] = await Promise.all([
+    !tradeType || tradeType === 'SALE'
+      ? prisma.sale.findMany({
+          where: {
+            sellerId: userId,
+            status: saleStatusWhere,
+            photoCard: photoCardWhere,
+          },
+          select: {
+            status: true,
+            photoCard: { select: { grade: true, genre: true } },
+          },
+        })
+      : [],
+    !tradeType || tradeType === 'EXCHANGE'
+      ? prisma.exchangeProposal.findMany({
+          where: {
+            proposerId: userId,
+            status: 'PENDING',
+            offeredCardCopy: { photoCard: photoCardWhere },
+          },
+          select: {
+            offeredCardCopy: {
+              select: { photoCard: { select: { grade: true, genre: true } } },
+            },
+          },
+        })
+      : [],
+  ]);
+
+  const allFilteredItems = [
+    ...allFilteredSales.map((s) => ({
+      grade: s.photoCard?.grade,
+      genre: s.photoCard?.genre,
+      tradeType: 'SALE',
+      status: s.status,
+    })),
+    ...allFilteredExchanges.map((e) => ({
+      grade: e.offeredCardCopy?.photoCard?.grade,
+      genre: e.offeredCardCopy?.photoCard?.genre,
+      tradeType: 'EXCHANGE',
+      status: 'ON_SALE',
+    })),
+  ];
+
+  const counts = {
+    grades: {
+      COMMON: allFilteredItems.filter((i) => i.grade === 'COMMON').length,
+      RARE: allFilteredItems.filter((i) => i.grade === 'RARE').length,
+      SUPER_RARE: allFilteredItems.filter((i) => i.grade === 'SUPER_RARE')
+        .length,
+      LEGENDARY: allFilteredItems.filter((i) => i.grade === 'LEGENDARY').length,
+    },
+    genres: {
+      ALBUM: allFilteredItems.filter((i) => i.genre === 'ALBUM').length,
+      SPECIAL: allFilteredItems.filter((i) => i.genre === 'SPECIAL').length,
+      FAN_SIGN: allFilteredItems.filter((i) => i.genre === 'FAN_SIGN').length,
+      SEASON_GREETING: allFilteredItems.filter(
+        (i) => i.genre === 'SEASON_GREETING'
+      ).length,
+      FAN_MEETING: allFilteredItems.filter((i) => i.genre === 'FAN_MEETING')
+        .length,
+      CONCERT: allFilteredItems.filter((i) => i.genre === 'CONCERT').length,
+      MD: allFilteredItems.filter((i) => i.genre === 'MD').length,
+      COLLAB: allFilteredItems.filter((i) => i.genre === 'COLLAB').length,
+      FANCLUB: allFilteredItems.filter((i) => i.genre === 'FANCLUB').length,
+      ETC: allFilteredItems.filter((i) => i.genre === 'ETC').length,
+    },
+    tradeTypes: {
+      SALE: allFilteredItems.filter((i) => i.tradeType === 'SALE').length,
+      EXCHANGE: allFilteredItems.filter((i) => i.tradeType === 'EXCHANGE')
+        .length,
+    },
+    saleStatuses: {
+      ON_SALE: allFilteredSales.filter((s) => s.status === 'ON_SALE').length,
+      SOLD_OUT: allFilteredSales.filter((s) => s.status === 'SOLD_OUT').length,
+    },
+  };
+
+  const resultCounts = allFilteredItems.length;
+
   //meta 통계 정보
   const totalCount = totalItemsGrades.length;
   const totalPages = Math.ceil(totalItemsGrades.length / limit);
@@ -657,6 +741,8 @@ export const getMyTradesService = async ({
       totalCount,
       totalPages,
       hasNextPage,
+      counts,
+      resultCounts,
       gradeStats: [
         {
           grade: CardGrade.COMMON,
