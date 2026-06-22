@@ -360,19 +360,10 @@ export const getMyTradesService = async ({
   };
   //console.log('[photoCardWhere]', photoCardWhere);
 
-  const parsedIsSoldOut =
-    isSoldOut === undefined
-      ? undefined
-      : isSoldOut === 'true' || isSoldOut === true;
-  //console.log('[parsedIsSoldOut]', parsedIsSoldOut);
-
   const saleStatusWhere =
-    parsedIsSoldOut === undefined
-      ? { in: ['ON_SALE', 'SOLD_OUT'] }
-      : parsedIsSoldOut
-        ? 'SOLD_OUT'
-        : 'ON_SALE';
-  //console.log('[saleStatusWhere]', saleStatusWhere);
+    isSoldOut === 'ON_SALE' || isSoldOut === 'SOLD_OUT'
+      ? isSoldOut
+      : { in: ['ON_SALE', 'SOLD_OUT'] };
 
   //Sales와 Exchanges를 한 쿼리로 받아와야 함.
   //현재는, 기본상태일 때의 값을 SALE과 EXCHANGE각각 따로 가져오는데 -> 기본 상태일 때, 아예 다른 쿼리로 가져오도록 수정이 필요.
@@ -383,11 +374,9 @@ export const getMyTradesService = async ({
   //정렬 기준은 항상 고정되어있으니까 그냥 변수로 안넣음. 나중에 필요하면 추가..
   if (!tradeType) {
     const saleStatusSQL =
-      parsedIsSoldOut === undefined
-        ? `s."status" IN ('ON_SALE', 'SOLD_OUT')`
-        : parsedIsSoldOut
-          ? `s."status" = 'SOLD_OUT'`
-          : `s."status" = 'ON_SALE'`;
+      isSoldOut === 'ON_SALE' || isSoldOut === 'SOLD_OUT'
+        ? `s."status" = '${isSoldOut}'`
+        : `s."status" IN ('ON_SALE', 'SOLD_OUT')`;
     //console.log('[saleStatusSQL]', saleStatusSQL);
     let tradesRaw = [];
     try {
