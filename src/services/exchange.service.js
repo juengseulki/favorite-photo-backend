@@ -1,6 +1,6 @@
 import { ExchangeStatus, CardStatus, SaleStatus } from '@prisma/client';
 
-import { prisma } from '../lib/prisma.js';
+import prisma from '../configs/prisma.js';
 import exchangeProposalRepository from '../repositories/exchangeProposal.repository.js';
 import cardCopyRepository from '../repositories/cardCopy.repository.js';
 import { createNotification } from './notification.service.js';

@@ -1,6 +1,7 @@
 import { ERROR_CODES } from '../constants/errorCodes.js';
 import {
   getMarketCardsService,
+  getMarketCountsService,
   getMarketCardDetailService,
   purchaseCardsService,
 } from '../services/market.service.js';
@@ -30,6 +31,26 @@ export const getMarketCards = async (req, res, next) => {
       cursor,
       limit: safeLimit,
       sort,
+      saleStatus,
+    });
+
+    return res.status(200).json({
+      data: result,
+      message: 'success',
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getMarketCounts = async (req, res, next) => {
+  try {
+    const { keyword, grade, genre, saleStatus = 'all' } = req.query;
+
+    const result = await getMarketCountsService({
+      keyword,
+      grade,
+      genre,
       saleStatus,
     });
 
