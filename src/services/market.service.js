@@ -147,26 +147,49 @@ const buildMarketCursorWhere = ({ cursor, sort }) => {
   };
 };
 
+const GRADES = ['COMMON', 'RARE', 'SUPER_RARE', 'LEGENDARY'];
+
+const GENRES = [
+  'ALBUM',
+  'SPECIAL',
+  'FAN_SIGN',
+  'SEASON_GREETING',
+  'FAN_MEETING',
+  'CONCERT',
+  'MD',
+  'COLLAB',
+  'FANCLUB',
+  'ETC',
+];
+
 const getMarketCounts = async (where) => {
+  const photoCardWhere = where.photoCard ?? {};
+
+  const baseWhere = { ...where };
+  delete baseWhere.photoCard;
+
   const [onSaleCount, soldOutCount, gradeCounts, genreCounts] =
     await Promise.all([
       prisma.sale.count({
         where: {
-          ...where,
+          ...baseWhere,
           status: SaleStatus.ON_SALE,
           saleItems: {
             some: {
               purchaseItem: null,
             },
           },
+          photoCard: photoCardWhere,
         },
       }),
 
       prisma.sale.count({
         where: {
-          ...where,
+          ...baseWhere,
           OR: [
-            { status: SaleStatus.SOLD_OUT },
+            {
+              status: SaleStatus.SOLD_OUT,
+            },
             {
               saleItems: {
                 none: {
@@ -175,6 +198,7 @@ const getMarketCounts = async (where) => {
               },
             },
           ],
+          photoCard: photoCardWhere,
         },
       }),
 
@@ -182,9 +206,9 @@ const getMarketCounts = async (where) => {
         GRADES.map(async (grade) => {
           const count = await prisma.sale.count({
             where: {
-              ...where,
+              ...baseWhere,
               photoCard: {
-                ...where.photoCard,
+                ...photoCardWhere,
                 grade,
               },
             },
@@ -198,9 +222,9 @@ const getMarketCounts = async (where) => {
         GENRES.map(async (genre) => {
           const count = await prisma.sale.count({
             where: {
-              ...where,
+              ...baseWhere,
               photoCard: {
-                ...where.photoCard,
+                ...photoCardWhere,
                 genre,
               },
             },

@@ -18,12 +18,17 @@ export const getMarketCards = async (req, res, next) => {
       saleStatus = 'all',
     } = req.query;
 
+    const parsedLimit = Number(limit);
+    const safeLimit = Number.isInteger(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 50)
+      : 15;
+
     const result = await getMarketCardsService({
       keyword,
       grade,
       genre,
       cursor,
-      limit: Math.min(Number(limit), 50),
+      limit: safeLimit,
       sort,
       saleStatus,
     });

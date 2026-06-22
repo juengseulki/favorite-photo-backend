@@ -13,7 +13,7 @@
     "prepare": "husky || true",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "seed:large": "node prisma/seedLarge.js"
+    "seedLarge": "node prisma/seedLarge.js"
   },
   "lint-staged": {
     "*.{js,json,md}": [
