@@ -140,6 +140,14 @@ export async function createProposal({
       tx,
     });
 
+    await cardCopyRepository.updateCardCopy({
+      id: offeredCardCopyId,
+      data: {
+        status: CardStatus.EXCHANGING,
+      },
+      tx,
+    });
+
     await createNotification({
       userId: sale.sellerId,
       type: 'EXCHANGE_REQUEST',
@@ -264,6 +272,14 @@ export async function rejectProposal({ userId, proposalId }) {
       tx,
     });
 
+    await cardCopyRepository.updateCardCopy({
+      id: proposal.offeredCardCopyId,
+      data: {
+        status: CardStatus.OWNED,
+      },
+      tx,
+    });
+
     await createNotification({
       userId: proposal.proposerId,
       type: 'EXCHANGE_REJECTED',
@@ -310,6 +326,13 @@ export async function cancelProposal({ userId, proposalId }) {
     id: proposalId,
     prevStatus: ExchangeStatus.PENDING,
     newStatus: ExchangeStatus.CANCELED,
+  });
+
+  await cardCopyRepository.updateCardCopy({
+    id: proposal.offeredCardCopyId,
+    data: {
+      status: CardStatus.OWNED,
+    },
   });
 
   return {
@@ -411,7 +434,7 @@ export async function acceptProposal({ userId, proposalId }) {
       );
     }
 
-    if (offeredCardCopy.status !== CardStatus.OWNED) {
+    if (offeredCardCopy.status !== CardStatus.EXCHANGING) {
       throw new AppError(
         ERROR_CODES.EXCHANGE_NOT_AVAILABLE(
           '현재 제안 카드 상태에서는 교환을 승인할 수 없습니다.'
