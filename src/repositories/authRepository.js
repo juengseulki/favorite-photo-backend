@@ -34,8 +34,25 @@ export const createUserWithPoint = ({ email, nickname, password }) =>
     return user;
   });
 
-export const createRefreshToken = ({ userId, tokenHash, expiresAt }) =>
-  prisma.refreshToken.create({ data: { userId, tokenHash, expiresAt } });
+export const upsertRefreshToken = ({ userId, tokenHash, expiresAt }) =>
+  prisma.refreshToken.upsert({
+    where: { userId },
+    update: {
+      tokenHash,
+      expiresAt,
+    },
+    create: {
+      userId,
+      tokenHash,
+      expiresAt,
+    },
+  });
+
+export const updateRefreshTokenExpiresAt = ({ tokenHash, expiresAt }) =>
+  prisma.refreshToken.update({
+    where: { tokenHash },
+    data: { expiresAt },
+  });
 
 export const findRefreshToken = (tokenHash) =>
   prisma.refreshToken.findUnique({ where: { tokenHash } });
