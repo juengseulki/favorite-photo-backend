@@ -243,10 +243,22 @@ export const modifySale = async ({ saleId, photoCardId, userId, data }) => {
       }
     }
 
-    return await saleRepository.getSale({
+    const updatedSale = await saleRepository.getSale({
       saleId: parsedSaleId,
       tx,
     });
+
+    const remainingQuantity =
+      await saleItemRepository.countActiveSaleItemsForSale({
+        saleId: parsedSaleId,
+        userId,
+        tx,
+      });
+
+    return {
+      ...updatedSale,
+      remainingQuantity,
+    };
   });
 };
 

@@ -304,6 +304,9 @@ export const getMarketCardsService = async ({
           saleItems: {
             where: {
               purchaseItem: null,
+              cardCopy: {
+                status: CardStatus.ON_SALE,
+              },
             },
           },
         },
@@ -393,6 +396,9 @@ export const getMarketCardDetailService = async (saleId) => {
           saleItems: {
             where: {
               purchaseItem: null,
+              cardCopy: {
+                status: CardStatus.ON_SALE,
+              },
             },
           },
         },
