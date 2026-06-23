@@ -78,7 +78,7 @@ export const oauthCallback = async (req, res) => {
   // 신규 사용자 — 닉네임 설정 페이지로 리다이렉트
   if (oauthUser?.isNew) {
     const params = new URLSearchParams({
-      provider: oauthUser.provider,
+      provider: oauthUser.provider.toUpperCase(),
       providerAccountId: oauthUser.providerAccountId,
       ...(oauthUser.email && { email: oauthUser.email }),
     });
@@ -106,12 +106,15 @@ export const oauthCallback = async (req, res) => {
 // 신규 OAuth 사용자 닉네임 설정 완료 (Google / Kakao / Naver 공통)
 export const oauthComplete = async (req, res) => {
   const { provider, providerAccountId, email, nickname } = req.body;
+
+  const normalizedProvider = (provider ?? 'GOOGLE').toUpperCase();
+
   const { user, accessToken, refreshToken } =
     await authService.googleOAuthComplete({
       providerAccountId,
       email,
       nickname,
-      provider: provider ?? 'GOOGLE',
+      provider: normalizedProvider,
     });
 
   res.cookie('refreshToken', refreshToken, REFRESH_COOKIE_OPTIONS);
