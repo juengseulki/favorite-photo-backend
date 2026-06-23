@@ -10,6 +10,8 @@ import { swaggerSpec } from './docs/swagger.js';
 
 const app = express();
 
+app.disable('etag');
+
 const allowedOrigins = (process.env.CLIENT_URL ?? 'http://localhost:3000')
   .split(',')
   .map((u) => u.trim().replace(/\/$/, ''));
@@ -34,6 +36,16 @@ app.use(cookieParser());
 app.use(passport.initialize());
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use('/uploads', express.static('uploads'));
+
+app.use('/api', (req, res, next) => {
+  res.set(
+    'Cache-Control',
+    'no-store, no-cache, must-revalidate, proxy-revalidate'
+  );
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
 
 app.get('/', (req, res) => {
   res.json({ message: 'Favorite Photo Backend API' });
