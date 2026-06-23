@@ -1,7 +1,7 @@
 import * as authService from '../services/authService.js';
 import {
   findUserWithPoint,
-  createRefreshToken,
+  upsertRefreshToken,
 } from '../repositories/authRepository.js';
 import { signAccessToken, signRefreshToken } from '../utils/jwt.js';
 import { hashToken } from '../utils/hash.js';
@@ -92,7 +92,7 @@ export const oauthCallback = async (req, res) => {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
 
-  await createRefreshToken({
+  await upsertRefreshToken({
     userId: oauthUser.id,
     tokenHash: hashToken(refreshToken),
     expiresAt,

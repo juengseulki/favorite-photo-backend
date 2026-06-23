@@ -93,7 +93,7 @@ enum NotificationTargetType {
 
 model RefreshToken {
   id        Int    @id @default(autoincrement())
-  userId    String
+  userId    String @unique
   tokenHash String @unique
 
   expiresAt DateTime

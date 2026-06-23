@@ -11,20 +11,33 @@ import { SIGNUP_POINTS } from '../constants/points.js';
 
 const REFRESH_EXPIRES_DAYS = 7;
 
-const generateTokens = async (userId) => {
+const createTokenPair = (userId) => {
   const accessToken = signAccessToken({ userId });
   const refreshToken = signRefreshToken({ userId });
 
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + REFRESH_EXPIRES_DAYS);
 
-  await authRepository.createRefreshToken({
-    userId,
-    tokenHash: hashToken(refreshToken),
+  return {
+    accessToken,
+    refreshToken,
     expiresAt,
+  };
+};
+
+const generateTokens = async (userId) => {
+  const tokens = createTokenPair(userId);
+
+  await authRepository.upsertRefreshToken({
+    userId,
+    tokenHash: hashToken(tokens.refreshToken),
+    expiresAt: tokens.expiresAt,
   });
 
-  return { accessToken, refreshToken };
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+  };
 };
 
 const validateRegisterInput = ({ email, nickname, password }) => {
@@ -137,7 +150,20 @@ export const refresh = async (incomingToken) => {
     throw new AppError(ERROR_CODES.REFRESH_TOKEN_EXPIRED());
   }
 
-  return generateTokens(payload.userId);
+  const accessToken = signAccessToken({ userId: payload.userId });
+
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + REFRESH_EXPIRES_DAYS);
+
+  await authRepository.updateRefreshTokenExpiresAt({
+    tokenHash,
+    expiresAt,
+  });
+
+  return {
+    accessToken,
+    refreshToken: incomingToken,
+  };
 };
 
 export const googleOAuthComplete = async ({
